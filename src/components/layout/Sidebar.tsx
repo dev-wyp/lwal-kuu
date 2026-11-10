@@ -56,10 +56,8 @@ const mainNavItems: NavItem[] = [
 ];
 
 const platformNavItems: NavItem[] = [
-  { title: 'All Organizations', path: '/platform/organizations', icon: <AdminPanelSettingsIcon fontSize="small" /> },
-  { title: 'Subscriptions', path: '/platform/subscriptions', icon: <LoyaltyIcon fontSize="small" /> },
-  { title: 'Usage Metrics', path: '/platform/usage', icon: <AssessmentIcon fontSize="small" /> },
-  { title: 'Platform Audit Logs', path: '/platform/audit-logs', icon: <ReceiptLongIcon fontSize="small" /> },
+  { title: 'Super-Admin Console', path: '/admin/organizations', icon: <AdminPanelSettingsIcon fontSize="small" /> },
+  { title: 'Global Users', path: '/admin/users', icon: <PeopleAltIcon fontSize="small" /> },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, isMobile }) => {

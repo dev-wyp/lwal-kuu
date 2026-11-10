@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AuthLayout } from '@/components/layout/AuthLayout';
+import { AdminLayout } from '@/components/layout/AdminLayout';
 import { LandingPage } from '@/modules/public/LandingPage';
 import { PricingPage } from '@/modules/public/PricingPage';
 import { LoginPage } from '@/modules/auth/LoginPage';
@@ -21,6 +22,8 @@ import { ReportsPage } from '@/modules/reports/ReportsPage';
 import { SettingsPage } from '@/modules/settings/SettingsPage';
 import { SubscriptionPage } from '@/modules/subscription/SubscriptionPage';
 import { PlatformAdminPage } from '@/modules/platform/PlatformAdminPage';
+import { AdminLoginPage } from '@/modules/platform/AdminLoginPage';
+import { AdminUsersPage } from '@/modules/platform/AdminUsersPage';
 
 export const router = createBrowserRouter([
   // Public Landing & Pricing
@@ -33,7 +36,7 @@ export const router = createBrowserRouter([
     element: <PricingPage />,
   },
 
-  // Auth Routes
+  // 1. Tenant Shop Auth Routes
   {
     element: <AuthLayout />,
     children: [
@@ -43,13 +46,23 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // Self-Service Onboarding Wizard
+  // 2. Dedicated Platform Super-Admin Login
+  {
+    path: '/admin/login',
+    element: <AdminLoginPage />,
+  },
+  {
+    path: '/platform/login',
+    element: <Navigate to="/admin/login" replace />,
+  },
+
+  // Self-Service Onboarding Wizard for Shop Owners
   {
     path: '/onboarding',
     element: <OnboardingPage />,
   },
 
-  // Protected Tenant SaaS Application
+  // 3. Protected Tenant SaaS Application (Wholesale Shop Operations)
   {
     path: '/app',
     element: <AppLayout />,
@@ -71,17 +84,40 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // Platform Admin
+  // 4. Dedicated Platform Super-Admin Portal (Managing all shops & organizations)
   {
-    path: '/platform',
-    element: <AppLayout />,
+    path: '/admin',
+    element: <AdminLayout />,
     children: [
-      { index: true, element: <Navigate to="/platform/organizations" replace /> },
+      { index: true, element: <Navigate to="/admin/organizations" replace /> },
       { path: 'organizations', element: <PlatformAdminPage /> },
       { path: 'subscriptions', element: <PlatformAdminPage /> },
-      { path: 'usage', element: <PlatformAdminPage /> },
       { path: 'audit-logs', element: <PlatformAdminPage /> },
+      { path: 'analytics', element: <PlatformAdminPage /> },
+      { path: 'users', element: <AdminUsersPage /> },
     ],
+  },
+
+  // Backwards Compatibility for /platform routes
+  {
+    path: '/platform',
+    element: <Navigate to="/admin/organizations" replace />,
+  },
+  {
+    path: '/platform/organizations',
+    element: <Navigate to="/admin/organizations" replace />,
+  },
+  {
+    path: '/platform/subscriptions',
+    element: <Navigate to="/admin/subscriptions" replace />,
+  },
+  {
+    path: '/platform/audit-logs',
+    element: <Navigate to="/admin/audit-logs" replace />,
+  },
+  {
+    path: '/platform/usage',
+    element: <Navigate to="/admin/analytics" replace />,
   },
 
   // Catch-all

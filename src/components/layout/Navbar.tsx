@@ -196,7 +196,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               <MenuItem
                 onClick={() => {
                   handleMenuClose();
-                  navigate('/platform/organizations');
+                  navigate('/admin/organizations');
                 }}
                 sx={{ color: '#dc2626', fontWeight: 600 }}
               >

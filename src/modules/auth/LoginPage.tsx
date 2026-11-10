@@ -153,6 +153,12 @@ export const LoginPage: React.FC = () => {
             Start free trial
           </MuiLink>
         </Typography>
+
+        <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #f1f5f9' }}>
+          <MuiLink component={Link} to="/admin/login" variant="caption" sx={{ color: '#94a3b8', textDecoration: 'none', '&:hover': { color: '#dc2626', textDecoration: 'underline' } }}>
+            Platform Administrator? Access Super-Admin Portal &rarr;
+          </MuiLink>
+        </Box>
       </Box>
     </Box>
   );

@@ -54,15 +54,18 @@ export const PlatformAdminPage: React.FC = () => {
 
   // Tab mapping with route URLs
   const tabRoutes = [
-    '/platform/organizations',
-    '/platform/subscriptions',
-    '/platform/audit-logs',
-    '/platform/usage',
+    '/admin/organizations',
+    '/admin/subscriptions',
+    '/admin/audit-logs',
+    '/admin/analytics',
   ];
 
   const currentTabIndex = useMemo(() => {
-    const idx = tabRoutes.findIndex((r) => location.pathname.startsWith(r));
-    return idx >= 0 ? idx : 0;
+    const p = location.pathname;
+    if (p.includes('subscription')) return 1;
+    if (p.includes('audit-log')) return 2;
+    if (p.includes('analytic') || p.includes('usage')) return 3;
+    return 0;
   }, [location.pathname]);
 
   const [searchQuery, setSearchQuery] = useState('');
