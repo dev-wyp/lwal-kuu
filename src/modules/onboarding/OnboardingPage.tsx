@@ -56,13 +56,22 @@ export const OnboardingPage: React.FC = () => {
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    setValue('name', val);
-    const generatedSlug = val
+    let clean = val
       .toLowerCase()
       .trim()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
-    setValue('slug', generatedSlug);
+
+    // Fallback for non-ASCII/Burmese shop names
+    if (!clean || clean.length < 2) {
+      clean = 'shop-' + Math.random().toString(36).substring(2, 7);
+    }
+    setValue('slug', clean, { shouldValidate: true });
+  };
+
+  const onError = (validationErrors: unknown) => {
+    console.error('Onboarding validation errors:', validationErrors);
+    setErrorMsg('Please verify the shop name and identifier. Identifier must contain lowercase letters and hyphens.');
   };
 
   const onSubmit = async (data: OnboardingFormData) => {
@@ -75,10 +84,16 @@ export const OnboardingPage: React.FC = () => {
       setLoading(true);
       setErrorMsg(null);
 
+      // Ensure slug is never empty
+      let finalSlug = data.slug?.trim();
+      if (!finalSlug || finalSlug.length < 2) {
+        finalSlug = 'shop-' + Math.random().toString(36).substring(2, 7);
+      }
+
       // 1. Try atomic onboarding RPC first (bypasses RLS chicken-and-egg issues)
       const { data: rpcOrg, error: rpcError } = await supabase.rpc('create_organization_with_owner', {
         p_name: data.name,
-        p_slug: data.slug,
+        p_slug: finalSlug,
         p_plan_id: selectedPlan,
         p_phone: data.phone || null,
         p_address: data.address || null,
@@ -96,7 +111,7 @@ export const OnboardingPage: React.FC = () => {
           .from('organizations')
           .insert({
             name: data.name,
-            slug: data.slug,
+            slug: finalSlug,
           })
           .select()
           .single();
@@ -157,7 +172,8 @@ export const OnboardingPage: React.FC = () => {
       showSuccess(`Organization "${createdOrgName}" created! Your 14-day trial is active.`);
       localStorage.setItem('shopflow_active_org_id', createdOrgId);
       await refreshOrgs();
-      navigate('/app/dashboard');
+      // Full redirect to guarantee fresh state and sidebar render
+      window.location.href = '/app/dashboard';
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create organization';
       setErrorMsg(message);
@@ -185,7 +201,7 @@ export const OnboardingPage: React.FC = () => {
           </Alert>
         )}
 
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
+        <Box component="form" onSubmit={handleSubmit(onSubmit, onError)} noValidate>
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <TextField
@@ -194,8 +210,7 @@ export const OnboardingPage: React.FC = () => {
                 placeholder="e.g. Shwe Thiri Wholesale"
                 size="small"
                 autoFocus
-                {...register('name')}
-                onChange={handleNameChange}
+                {...register('name', { onChange: handleNameChange })}
                 error={Boolean(errors.name)}
                 helperText={errors.name?.message}
               />
