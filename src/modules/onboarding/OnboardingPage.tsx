@@ -31,10 +31,17 @@ type OnboardingFormData = z.infer<typeof onboardingSchema>;
 
 export const OnboardingPage: React.FC = () => {
   const { user } = useAuth();
-  const { refreshOrgs } = useOrg();
+  const { currentOrg, organizations, loading: orgLoading, refreshOrgs } = useOrg();
   const { showSuccess } = useNotification();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  // If user already has an active organization, redirect directly to dashboard
+  React.useEffect(() => {
+    if (!orgLoading && (currentOrg || organizations.length > 0)) {
+      navigate('/app/dashboard', { replace: true });
+    }
+  }, [currentOrg, organizations, orgLoading, navigate]);
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);

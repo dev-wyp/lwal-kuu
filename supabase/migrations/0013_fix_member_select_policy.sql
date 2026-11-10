@@ -26,3 +26,4 @@ create policy "Members can view organization settings"
 
 -- Reload schema cache
 notify pgrst, 'reload schema';
+
