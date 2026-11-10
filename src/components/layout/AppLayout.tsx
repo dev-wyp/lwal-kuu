@@ -11,7 +11,7 @@ export const AppLayout: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const { currentOrg, loading: orgLoading } = useOrg();
   const navigate = useNavigate();
 
@@ -31,8 +31,9 @@ export const AppLayout: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
 
-  // If user has no organizations yet, redirect to onboarding
-  if (!currentOrg && window.location.pathname !== '/onboarding') {
+  // If user has no organizations yet, allow platform superadmin to access /platform routes, otherwise prompt onboarding
+  const isPlatformRoute = window.location.pathname.startsWith('/platform');
+  if (!currentOrg && window.location.pathname !== '/onboarding' && !(isPlatformRoute && profile?.is_platform_admin)) {
     return (
       <Box
         sx={{

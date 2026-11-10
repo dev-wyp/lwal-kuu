@@ -22,6 +22,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import SettingsIcon from '@mui/icons-material/Settings';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import AddBusinessIcon from '@mui/icons-material/AddBusiness';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
 import { useNavigate } from 'react-router-dom';
@@ -190,6 +191,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               </ListItemIcon>
               New Organization
             </MenuItem>
+
+            {profile?.is_platform_admin && (
+              <MenuItem
+                onClick={() => {
+                  handleMenuClose();
+                  navigate('/platform/organizations');
+                }}
+                sx={{ color: '#dc2626', fontWeight: 600 }}
+              >
+                <ListItemIcon>
+                  <AdminPanelSettingsIcon fontSize="small" sx={{ color: '#dc2626' }} />
+                </ListItemIcon>
+                Super-Admin Portal
+              </MenuItem>
+            )}
 
             <Divider />
             <MenuItem onClick={handleSignOut} sx={{ color: 'error.main' }}>
