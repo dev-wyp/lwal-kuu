@@ -1,0 +1,265 @@
+import React, { useState } from 'react';
+import {
+  Box,
+  Typography,
+  Button,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  InputAdornment,
+  Chip,
+  IconButton,
+  CircularProgress,
+  MenuItem,
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
+import EditIcon from '@mui/icons-material/Edit';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+import { useOrg } from '@/context/OrgContext';
+import { ProductModal } from './ProductModal';
+
+export const ProductsPage: React.FC = () => {
+  const { currentOrg, formatCurrency } = useOrg();
+  const orgId = currentOrg?.id;
+
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+
+  // 1. Fetch Categories
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories', orgId],
+    queryFn: async () => {
+      if (!orgId) return [];
+      const { data } = await supabase
+        .from('product_categories')
+        .select('*')
+        .eq('organization_id', orgId)
+        .order('name');
+      return data || [];
+    },
+    enabled: Boolean(orgId),
+  });
+
+  // 2. Fetch Units
+  const { data: units = [] } = useQuery({
+    queryKey: ['units', orgId],
+    queryFn: async () => {
+      if (!orgId) return [];
+      const { data } = await supabase
+        .from('units')
+        .select('*')
+        .eq('organization_id', orgId)
+        .order('name');
+      return data || [];
+    },
+    enabled: Boolean(orgId),
+  });
+
+  // 3. Fetch Products with current stock balance
+  const { data: products = [], isLoading } = useQuery({
+    queryKey: ['products', orgId, search, categoryFilter],
+    queryFn: async () => {
+      if (!orgId) return [];
+
+      let query = supabase
+        .from('products')
+        .select(`
+          *,
+          product_categories(name),
+          units(name, code)
+        `)
+        .eq('organization_id', orgId)
+        .eq('is_active', true)
+        .order('name');
+
+      if (categoryFilter) {
+        query = query.eq('category_id', categoryFilter);
+      }
+
+      if (search) {
+        query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%`);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      // Fetch stock balances
+      const { data: stockBalances } = await supabase
+        .from('product_stock_balances')
+        .select('product_id, stock_on_hand, is_low_stock')
+        .eq('organization_id', orgId);
+
+      const balanceMap = new Map();
+      stockBalances?.forEach((b) => {
+        balanceMap.set(b.product_id, b);
+      });
+
+      return (data || []).map((p) => {
+        const bal = balanceMap.get(p.id);
+        return {
+          ...p,
+          stock_on_hand: bal ? Number(bal.stock_on_hand) : 0,
+          is_low_stock: bal ? Boolean(bal.is_low_stock) : false,
+        };
+      });
+    },
+    enabled: Boolean(orgId),
+  });
+
+  const handleOpenAdd = () => {
+    setEditingProduct(null);
+    setModalOpen(true);
+  };
+
+  const handleOpenEdit = (p: any) => {
+    setEditingProduct(p);
+    setModalOpen(true);
+  };
+
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <div>
+          <Typography variant="h4" sx={{ fontWeight: 800 }}>
+            Product Catalog
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Manage wholesale products, inventory pricing, and stock thresholds.
+          </Typography>
+        </div>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={handleOpenAdd}
+          sx={{ borderRadius: 2, bgcolor: '#0f172a', fontWeight: 600 }}
+        >
+          Add Product
+        </Button>
+      </Box>
+
+      {/* Filter Bar */}
+      <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <TextField
+            size="small"
+            placeholder="Search by SKU or Name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={{ minWidth: 260 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          <TextField
+            size="small"
+            select
+            label="Category"
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            sx={{ minWidth: 180 }}
+          >
+            <MenuItem value="">All Categories</MenuItem>
+            {categories.map((c) => (
+              <MenuItem key={c.id} value={c.id}>
+                {c.name}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Box>
+      </Paper>
+
+      {/* Products Table */}
+      <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff', overflow: 'hidden' }}>
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>SKU</TableCell>
+                <TableCell>Product Name</TableCell>
+                <TableCell>Category</TableCell>
+                <TableCell>Unit</TableCell>
+                <TableCell align="right">Cost Price</TableCell>
+                <TableCell align="right">Sale Price</TableCell>
+                <TableCell align="center">Stock on Hand</TableCell>
+                <TableCell align="center">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                    <CircularProgress size={32} />
+                  </TableCell>
+                </TableRow>
+              ) : products.length > 0 ? (
+                products.map((p) => (
+                  <TableRow key={p.id} hover>
+                    <TableCell sx={{ fontWeight: 600, color: '#0284c7' }}>{p.sku}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{p.name}</TableCell>
+                    <TableCell>
+                      {p.product_categories ? (
+                        <Chip label={p.product_categories.name} size="small" sx={{ height: 22, fontSize: 11 }} />
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                    <TableCell>{p.units?.name || '-'}</TableCell>
+                    <TableCell align="right">{formatCurrency(p.average_cost || p.purchase_price)}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700 }}>
+                      {formatCurrency(p.sale_price)}
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                        <Typography sx={{ fontWeight: 700 }}>
+                          {p.stock_on_hand} {p.units?.code}
+                        </Typography>
+                        {p.is_low_stock && (
+                          <WarningAmberIcon sx={{ color: '#ef4444', fontSize: 18 }} titleAccess="Low Stock Alert" />
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell align="center">
+                      <IconButton size="small" onClick={() => handleOpenEdit(p)}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={8} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                    No products found. Click &quot;Add Product&quot; to build your catalog.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+
+      <ProductModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        product={editingProduct}
+        categories={categories}
+        units={units}
+      />
+    </Box>
+  );
+};
+

@@ -1,109 +1,133 @@
-<a href="https://demo-nextjs-with-supabase.vercel.app/">
-  <img alt="Next.js and Supabase Starter Kit - the fastest way to build apps with Next.js and Supabase" src="https://demo-nextjs-with-supabase.vercel.app/opengraph-image.png">
-  <h1 align="center">Next.js and Supabase Starter Kit</h1>
-</a>
+# ShopFlow — Wholesale & Small Shop Management SaaS
 
-<p align="center">
- The fastest way to build apps with Next.js and Supabase
-</p>
+ShopFlow is a production-ready, multi-tenant Software-as-a-Service (SaaS) platform built for wholesale distributors and retail shop owners. Initially optimized for Myanmar small businesses (with native Myanmar Kyat `MMK`, `Asia/Yangon` business timezone, and local mobile money workflows), its modular architecture easily expands internationally.
 
-<p align="center">
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#demo"><strong>Demo</strong></a> ·
-  <a href="#deploy-to-vercel"><strong>Deploy to Vercel</strong></a> ·
-  <a href="#clone-and-run-locally"><strong>Clone and run locally</strong></a> ·
-  <a href="#feedback-and-issues"><strong>Feedback and issues</strong></a>
-  <a href="#more-supabase-examples"><strong>More Examples</strong></a>
-</p>
-<br/>
+---
 
-## Features
+## Key Features
 
-- Works across the entire [Next.js](https://nextjs.org) stack
-  - App Router
-  - Pages Router
-  - Proxy
-  - Client
-  - Server
-  - It just works!
-- supabase-ssr. A package to configure Supabase Auth to use cookies
-- Password-based authentication block installed via the [Supabase UI Library](https://supabase.com/ui/docs/nextjs/password-based-auth)
-- Styling with [Tailwind CSS](https://tailwindcss.com)
-- Components with [shadcn/ui](https://ui.shadcn.com/)
-- Optional deployment with [Supabase Vercel Integration and Vercel deploy](#deploy-your-own)
-  - Environment variables automatically assigned to Vercel project
+- **Multi-Tenant Isolation:** Complete organization-level data segregation enforced by PostgreSQL Row Level Security (RLS) on all tenant-owned tables.
+- **Fast POS & Invoicing:** Mobile-friendly checkout register with barcode scanning, product lookups, cash sales, partial upfront deposits, and credit invoicing.
+- **Dynamic Customer Credit Ledgers:** Non-drifting financial ledgers with date-range statement generation and multi-invoice FIFO payment allocations.
+- **Immutable Stock Ledger:** Inventory movements (`stock_movements`) serve as the single source of truth, calculating weighted average costing and true gross profit margins.
+- **Vendor Purchasing & Receiving:** Purchase order management with automatic inventory increments and supplier accounts payable.
+- **Self-Service SaaS Onboarding:** Instant 14-day free trial auto-provisioning upon organization creation.
+- **Subscription Management:** Starter, Business, and Pro tiers with usage meter limits and manual domestic payment verification.
+- **Platform Super-Admin:** Global organization monitoring, manual payment approval workflows, and audit logging.
 
-## Demo
+---
 
-You can view a fully working demo at [demo-nextjs-with-supabase.vercel.app](https://demo-nextjs-with-supabase.vercel.app/).
+## Technology Stack
 
-## Deploy to Vercel
+- **Frontend:** React 18, Vite, TypeScript (Strict Mode), Material UI (MUI v6), React Router v7, TanStack Query v5, React Hook Form, Zod.
+- **Backend & Database:** Supabase, PostgreSQL 15+, Supabase Auth, Row Level Security, PostgreSQL Functions/RPCs, Supabase Edge Functions, Supabase Cron.
+- **Architecture:** Modular Monolith.
 
-Vercel deployment will guide you through creating a Supabase account and project.
+---
 
-After installation of the Supabase integration, all relevant environment variables will be assigned to the project so the deployment is fully functioning.
+## Getting Started
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&project-name=nextjs-with-supabase&repository-name=nextjs-with-supabase&demo-title=nextjs-with-supabase&demo-description=This+starter+configures+Supabase+Auth+to+use+cookies%2C+making+the+user%27s+session+available+throughout+the+entire+Next.js+app+-+Client+Components%2C+Server+Components%2C+Route+Handlers%2C+Server+Actions+and+Middleware.&demo-url=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2F&external-id=https%3A%2F%2Fgithub.com%2Fvercel%2Fnext.js%2Ftree%2Fcanary%2Fexamples%2Fwith-supabase&demo-image=https%3A%2F%2Fdemo-nextjs-with-supabase.vercel.app%2Fopengraph-image.png)
+### 1. Installation
 
-The above will also clone the Starter kit to your GitHub, you can clone that locally and develop locally.
+```bash
+# Clone the repository
+cd wholesale-erp
 
-If you wish to just develop locally and not deploy to Vercel, [follow the steps below](#clone-and-run-locally).
+# Install dependencies
+npm install
+```
 
-## Clone and run locally
+### 2. Configure Environment Variables
 
-1. You'll first need a Supabase project which can be made [via the Supabase dashboard](https://database.new)
+Copy `.env.example` to `.env`:
 
-2. Create a Next.js app using the Supabase Starter template npx command
+```bash
+cp .env.example .env
+```
 
-   ```bash
-   npx create-next-app --example with-supabase with-supabase-app
-   ```
+Set your Supabase credentials:
+```ini
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-publishable-key
+```
 
-   ```bash
-   yarn create next-app --example with-supabase with-supabase-app
-   ```
+### 3. Database Migrations
 
-   ```bash
-   pnpm create next-app --example with-supabase with-supabase-app
-   ```
+Apply the ordered SQL migrations in `supabase/migrations/`:
 
-3. Use `cd` to change into the app's directory
+```bash
+supabase link --project-ref your-project-id
+supabase db push
+```
 
-   ```bash
-   cd with-supabase-app
-   ```
+### 4. Run Development Server
 
-4. Rename `.env.example` to `.env.local` and update the following:
+```bash
+npm run dev
+```
 
-  ```env
-  NEXT_PUBLIC_SUPABASE_URL=[INSERT SUPABASE PROJECT URL]
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=[INSERT SUPABASE PROJECT API PUBLISHABLE OR ANON KEY]
-  ```
-  > [!NOTE]
-  > This example uses `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, which refers to Supabase's new **publishable** key format.
-  > Both legacy **anon** keys and new **publishable** keys can be used with this variable name during the transition period. Supabase's dashboard may show `NEXT_PUBLIC_SUPABASE_ANON_KEY`; its value can be used in this example.
-  > See the [full announcement](https://github.com/orgs/supabase/discussions/29260) for more information.
+Visit [http://localhost:3000](http://localhost:3000) in your browser.
 
-  Both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` can be found in [your Supabase project's API settings](https://supabase.com/dashboard/project/_?showConnect=true)
+---
 
-5. You can now run the Next.js local development server:
+## Project Structure
 
-   ```bash
-   npm run dev
-   ```
+```
+wholesale-erp/
+├── docs/                               # System architecture & documentation
+│   ├── architecture/
+│   │   ├── 01-project-architecture.md
+│   │   ├── 02-database-erd.md
+│   │   ├── 03-database-migration-plan.md
+│   │   ├── 04-business-workflows.md
+│   │   └── 05-mvp-implementation-checklist.md
+│   ├── deployment-guide.md
+│   ├── admin-operations-guide.md
+│   └── customer-onboarding-guide.md
+├── supabase/
+│   ├── migrations/                     # 10 dependency-ordered SQL migrations
+│   └── functions/                      # Deno Edge Functions (send-email, webhooks)
+├── src/
+│   ├── components/                     # Reusable layouts, Navbar, Sidebar
+│   ├── context/                        # Auth, Multi-Tenant Org, Notification providers
+│   ├── modules/                        # Business domain modules
+│   │   ├── public/                     # Landing & Pricing pages
+│   │   ├── auth/                       # Login, Register, Forgot Password
+│   │   ├── onboarding/                 # Self-service organization wizard
+│   │   ├── dashboard/                  # KPI overview & analytics
+│   │   ├── products/                   # Catalog, categories, units
+│   │   ├── customers/                  # Customers, statements, credit ledgers
+│   │   ├── suppliers/                  # Vendors & accounts payable
+│   │   ├── purchases/                  # POs & goods receipt workflow
+│   │   ├── inventory/                  # Stock movements ledger & adjustments
+│   │   ├── sales/                      # POS, invoicing, printable receipts, reversals
+│   │   ├── payments/                   # Customer receipts & invoice allocation
+│   │   ├── expenses/                   # Operational expense tracking
+│   │   ├── reports/                    # Daily/monthly sales, gross profit, CSV export
+│   │   ├── settings/                   # Org configuration & team member roles
+│   │   ├── subscription/               # Plan usage meters & upgrade flows
+│   │   └── platform/                   # Platform super-admin dashboard
+│   ├── routes/                         # React Router configuration
+│   ├── theme/                          # Material UI theme
+│   └── types/                          # TypeScript database schemas & domain types
+└── tests/
+    └── e2e/                            # Playwright end-to-end integration tests
+```
 
-   The starter kit should now be running on [localhost:3000](http://localhost:3000/).
+---
 
-6. This template comes with the default shadcn/ui style initialized. If you instead want other ui.shadcn styles, delete `components.json` and [re-install shadcn/ui](https://ui.shadcn.com/docs/installation/next)
+## Quality & Verification Commands
 
-> Check out [the docs for Local Development](https://supabase.com/docs/guides/getting-started/local-development) to also run Supabase locally.
+```bash
+# Type check TypeScript in strict mode
+npx tsc --noEmit
 
-## Feedback and issues
+# Run ESLint
+npm run lint
 
-Please file feedback and issues over on the [Supabase GitHub org](https://github.com/supabase/supabase/issues/new/choose).
+# Build production bundle
+npm run build
 
-## More Supabase examples
-
-- [Next.js Subscription Payments Starter](https://github.com/vercel/nextjs-subscription-payments)
-- [Cookie-based Auth and the Next.js 13 App Router (free course)](https://youtube.com/playlist?list=PL5S4mPUpp4OtMhpnp93EFSo42iQ40XjbF)
-- [Supabase Auth and the Next.js App Router](https://github.com/supabase/supabase/tree/master/examples/auth/nextjs)
+# Run Playwright E2E tests
+npm run test:e2e
+```
