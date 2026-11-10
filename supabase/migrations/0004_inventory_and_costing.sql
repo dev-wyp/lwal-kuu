@@ -3,6 +3,30 @@
 -- Description: Stock movements ledger, adjustments, stock balance view, and RLS.
 -- ==============================================================================
 
+-- Drop legacy non-multitenant inventory tables if they pre-exist
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'stock_movements'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'stock_movements' and column_name = 'organization_id'
+  ) then
+    drop table public.stock_movements cascade;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'stock_adjustments'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'stock_adjustments' and column_name = 'organization_id'
+  ) then
+    drop table public.stock_adjustments cascade;
+  end if;
+end $$;
+
 -- 1. Stock Movements (Immutable Ledger)
 create table if not exists public.stock_movements (
   id uuid primary key default gen_random_uuid(),

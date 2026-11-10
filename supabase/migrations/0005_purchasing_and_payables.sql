@@ -3,6 +3,40 @@
 -- Description: Purchases, purchase items, supplier payments, receiving RPC, and RLS.
 -- ==============================================================================
 
+-- Drop legacy non-multitenant purchasing tables if they pre-exist
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'purchases'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'purchases' and column_name = 'organization_id'
+  ) then
+    drop table public.purchases cascade;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'purchase_items'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'purchase_items' and column_name = 'organization_id'
+  ) then
+    drop table public.purchase_items cascade;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'supplier_payments'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'supplier_payments' and column_name = 'organization_id'
+  ) then
+    drop table public.supplier_payments cascade;
+  end if;
+end $$;
+
 -- 1. Purchases
 create table if not exists public.purchases (
   id uuid primary key default gen_random_uuid(),

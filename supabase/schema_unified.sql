@@ -409,6 +409,30 @@ create policy "Staff+ can insert and update products"
 -- Description: Customers and Suppliers directories with credit limits and balances.
 -- ==============================================================================
 
+-- Drop legacy non-multitenant customers and suppliers tables if they pre-exist
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'customers'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'customers' and column_name = 'organization_id'
+  ) then
+    drop table public.customers cascade;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'suppliers'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'suppliers' and column_name = 'organization_id'
+  ) then
+    drop table public.suppliers cascade;
+  end if;
+end $$;
+
 -- 1. Customers
 create table if not exists public.customers (
   id uuid primary key default gen_random_uuid(),
@@ -470,6 +494,30 @@ create policy "Managers+ can manage suppliers"
 -- Migration: 0004_inventory_and_costing.sql
 -- Description: Stock movements ledger, adjustments, stock balance view, and RLS.
 -- ==============================================================================
+
+-- Drop legacy non-multitenant inventory tables if they pre-exist
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'stock_movements'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'stock_movements' and column_name = 'organization_id'
+  ) then
+    drop table public.stock_movements cascade;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'stock_adjustments'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'stock_adjustments' and column_name = 'organization_id'
+  ) then
+    drop table public.stock_adjustments cascade;
+  end if;
+end $$;
 
 -- 1. Stock Movements (Immutable Ledger)
 create table if not exists public.stock_movements (
@@ -631,6 +679,40 @@ create policy "Managers+ can create adjustments"
 -- Migration: 0005_purchasing_and_payables.sql
 -- Description: Purchases, purchase items, supplier payments, receiving RPC, and RLS.
 -- ==============================================================================
+
+-- Drop legacy non-multitenant purchasing tables if they pre-exist
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'purchases'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'purchases' and column_name = 'organization_id'
+  ) then
+    drop table public.purchases cascade;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'purchase_items'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'purchase_items' and column_name = 'organization_id'
+  ) then
+    drop table public.purchase_items cascade;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'supplier_payments'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'supplier_payments' and column_name = 'organization_id'
+  ) then
+    drop table public.supplier_payments cascade;
+  end if;
+end $$;
 
 -- 1. Purchases
 create table if not exists public.purchases (
@@ -857,6 +939,50 @@ create policy "Managers+ can record supplier payments"
 -- Migration: 0006_sales_and_receivables.sql
 -- Description: Sales, sale items, payments, allocations, confirm sale RPC, and RLS.
 -- ==============================================================================
+
+-- Drop legacy non-multitenant sales and payment tables if they pre-exist
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'sales'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'sales' and column_name = 'organization_id'
+  ) then
+    drop table public.sales cascade;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'sale_items'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'sale_items' and column_name = 'organization_id'
+  ) then
+    drop table public.sale_items cascade;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'payments'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'payments' and column_name = 'organization_id'
+  ) then
+    drop table public.payments cascade;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'payment_allocations'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'payment_allocations' and column_name = 'organization_id'
+  ) then
+    drop table public.payment_allocations cascade;
+  end if;
+end $$;
 
 -- 1. Sales
 create table if not exists public.sales (
@@ -1368,6 +1494,30 @@ create policy "Staff+ can create allocations"
 -- Description: Operational expenses, expense categories, and RLS.
 -- ==============================================================================
 
+-- Drop legacy non-multitenant expense tables if they pre-exist
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'expense_categories'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'expense_categories' and column_name = 'organization_id'
+  ) then
+    drop table public.expense_categories cascade;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'expenses'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'expenses' and column_name = 'organization_id'
+  ) then
+    drop table public.expenses cascade;
+  end if;
+end $$;
+
 -- 1. Expense Categories
 create table if not exists public.expense_categories (
   id uuid primary key default gen_random_uuid(),
@@ -1440,6 +1590,20 @@ create policy "Staff+ can manage expenses"
 -- Migration: 0008_subscriptions_and_limits.sql
 -- Description: Plans, subscriptions, limits, payment verification, and RLS.
 -- ==============================================================================
+
+-- Drop legacy non-multitenant subscriptions table if it pre-exists
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'subscriptions'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'subscriptions' and column_name = 'organization_id'
+  ) then
+    drop table public.subscriptions cascade;
+  end if;
+end $$;
 
 -- 1. SaaS Plans Master
 create table if not exists public.plans (

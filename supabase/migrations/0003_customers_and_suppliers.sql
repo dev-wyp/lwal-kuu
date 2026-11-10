@@ -3,6 +3,30 @@
 -- Description: Customers and Suppliers directories with credit limits and balances.
 -- ==============================================================================
 
+-- Drop legacy non-multitenant customers and suppliers tables if they pre-exist
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'customers'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'customers' and column_name = 'organization_id'
+  ) then
+    drop table public.customers cascade;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'suppliers'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'suppliers' and column_name = 'organization_id'
+  ) then
+    drop table public.suppliers cascade;
+  end if;
+end $$;
+
 -- 1. Customers
 create table if not exists public.customers (
   id uuid primary key default gen_random_uuid(),

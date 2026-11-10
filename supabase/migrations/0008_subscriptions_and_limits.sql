@@ -3,6 +3,20 @@
 -- Description: Plans, subscriptions, limits, payment verification, and RLS.
 -- ==============================================================================
 
+-- Drop legacy non-multitenant subscriptions table if it pre-exists
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'subscriptions'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'subscriptions' and column_name = 'organization_id'
+  ) then
+    drop table public.subscriptions cascade;
+  end if;
+end $$;
+
 -- 1. SaaS Plans Master
 create table if not exists public.plans (
   id text primary key,

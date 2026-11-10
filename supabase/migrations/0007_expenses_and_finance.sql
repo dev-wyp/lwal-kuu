@@ -3,6 +3,30 @@
 -- Description: Operational expenses, expense categories, and RLS.
 -- ==============================================================================
 
+-- Drop legacy non-multitenant expense tables if they pre-exist
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'expense_categories'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'expense_categories' and column_name = 'organization_id'
+  ) then
+    drop table public.expense_categories cascade;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'expenses'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'expenses' and column_name = 'organization_id'
+  ) then
+    drop table public.expenses cascade;
+  end if;
+end $$;
+
 -- 1. Expense Categories
 create table if not exists public.expense_categories (
   id uuid primary key default gen_random_uuid(),

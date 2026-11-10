@@ -3,6 +3,50 @@
 -- Description: Sales, sale items, payments, allocations, confirm sale RPC, and RLS.
 -- ==============================================================================
 
+-- Drop legacy non-multitenant sales and payment tables if they pre-exist
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'sales'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'sales' and column_name = 'organization_id'
+  ) then
+    drop table public.sales cascade;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'sale_items'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'sale_items' and column_name = 'organization_id'
+  ) then
+    drop table public.sale_items cascade;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'payments'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'payments' and column_name = 'organization_id'
+  ) then
+    drop table public.payments cascade;
+  end if;
+
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'payment_allocations'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'payment_allocations' and column_name = 'organization_id'
+  ) then
+    drop table public.payment_allocations cascade;
+  end if;
+end $$;
+
 -- 1. Sales
 create table if not exists public.sales (
   id uuid primary key default gen_random_uuid(),
