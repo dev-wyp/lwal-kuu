@@ -81,7 +81,6 @@ export const OnboardingPage: React.FC = () => {
         .insert({
           name: data.name,
           slug: data.slug,
-          is_active: true,
         })
         .select()
         .single();
@@ -97,7 +96,6 @@ export const OnboardingPage: React.FC = () => {
           organization_id: orgData.id,
           user_id: user.id,
           role: 'owner',
-          is_active: true,
         });
 
       if (memberError) {
