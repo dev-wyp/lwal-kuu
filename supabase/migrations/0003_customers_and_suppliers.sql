@@ -3,6 +3,22 @@
 -- Description: Customers and Suppliers directories with credit limits and balances.
 -- ==============================================================================
 
+-- Ensure organizations & organization_members have required columns even if pre-existing
+alter table if exists public.organizations 
+  add column if not exists is_active boolean not null default true,
+  add column if not exists currency text not null default 'MMK',
+  add column if not exists timezone text not null default 'Asia/Yangon',
+  add column if not exists tax_id text;
+
+alter table if exists public.organization_members
+  add column if not exists is_active boolean not null default true;
+
+alter table if exists public.profiles
+  add column if not exists email text;
+
+-- Reload PostgREST schema cache
+notify pgrst, 'reload schema';
+
 -- Drop legacy non-multitenant customers and suppliers tables if they pre-exist
 do $$
 begin

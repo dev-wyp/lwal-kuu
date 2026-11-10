@@ -143,3 +143,6 @@ begin
 end;
 $$;
 
+-- Notify PostgREST to reload schema cache
+notify pgrst, 'reload schema';
+
