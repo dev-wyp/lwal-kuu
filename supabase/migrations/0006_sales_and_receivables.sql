@@ -9,11 +9,13 @@ create table if not exists public.sales (
   organization_id uuid not null references public.organizations(id) on delete cascade,
   customer_id uuid references public.customers(id) on delete restrict,
   invoice_number text not null,
+  invoice_no text,
   sale_date date not null default current_date,
   status text not null default 'draft' check (status in ('draft', 'confirmed', 'voided', 'reversed')),
   subtotal numeric(14, 2) not null default 0.00 check (subtotal >= 0),
   discount_amount numeric(14, 2) not null default 0.00 check (discount_amount >= 0),
   tax_amount numeric(14, 2) not null default 0.00 check (tax_amount >= 0),
+  total numeric(14, 2) not null default 0.00 check (total >= 0),
   total_amount numeric(14, 2) not null default 0.00 check (total_amount >= 0),
   total_cost numeric(14, 2) not null default 0.00 check (total_cost >= 0),
   paid_amount numeric(14, 2) not null default 0.00 check (paid_amount >= 0),
@@ -28,6 +30,31 @@ create table if not exists public.sales (
   updated_at timestamptz not null default now(),
   unique (organization_id, invoice_number)
 );
+
+create or replace function public.sync_sale_fields()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.invoice_no is null or new.invoice_no = '' then
+    new.invoice_no := new.invoice_number;
+  elsif new.invoice_number is null or new.invoice_number = '' then
+    new.invoice_number := new.invoice_no;
+  end if;
+
+  if new.total = 0 and new.total_amount > 0 then
+    new.total := new.total_amount;
+  elsif new.total_amount = 0 and new.total > 0 then
+    new.total_amount := new.total;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_sync_sale_fields on public.sales;
+create trigger trg_sync_sale_fields
+  before insert or update on public.sales
+  for each row execute function public.sync_sale_fields();
 
 create index if not exists idx_sales_org_customer on public.sales (organization_id, customer_id);
 create index if not exists idx_sales_org_date on public.sales (organization_id, sale_date desc);
@@ -49,16 +76,18 @@ create table if not exists public.sale_items (
 
 create index if not exists idx_sale_items_sale on public.sale_items (sale_id);
 
--- 3. Customer Payments
+-- 3. Customer & Unified Payments
 create table if not exists public.payments (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
-  customer_id uuid not null references public.customers(id) on delete restrict,
+  customer_id uuid references public.customers(id) on delete restrict,
+  payment_type text not null default 'customer_payment' check (payment_type in ('customer_payment', 'supplier_payment', 'other')),
   payment_number text not null,
   payment_date date not null default current_date,
   amount numeric(14, 2) not null check (amount > 0),
   allocated_amount numeric(14, 2) not null default 0.00 check (allocated_amount >= 0),
-  payment_method text not null check (payment_method in ('cash', 'bank_transfer', 'mobile_money', 'kbz_pay', 'wave_pay', 'other')),
+  payment_method text not null default 'cash' check (payment_method in ('cash', 'bank_transfer', 'mobile_money', 'kbz_pay', 'wave_pay', 'other')),
+  method text,
   reference_number text,
   notes text,
   status text not null default 'posted' check (status in ('posted', 'voided')),
@@ -68,6 +97,25 @@ create table if not exists public.payments (
   unique (organization_id, payment_number)
 );
 
+create or replace function public.sync_payment_fields()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.method is null or new.method = '' then
+    new.method := new.payment_method;
+  elsif new.payment_method is null or new.payment_method = '' then
+    new.payment_method := new.method;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_sync_payment_fields on public.payments;
+create trigger trg_sync_payment_fields
+  before insert or update on public.payments
+  for each row execute function public.sync_payment_fields();
+
 create index if not exists idx_payments_org_customer on public.payments (organization_id, customer_id);
 
 -- 4. Payment Allocations
@@ -75,13 +123,41 @@ create table if not exists public.payment_allocations (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
   payment_id uuid not null references public.payments(id) on delete cascade,
-  sale_id uuid not null references public.sales(id) on delete cascade,
-  allocated_amount numeric(14, 2) not null check (allocated_amount > 0),
-  created_at timestamptz not null default now(),
-  unique (payment_id, sale_id)
+  sale_id uuid references public.sales(id) on delete cascade,
+  document_type text not null default 'sale',
+  document_id uuid,
+  amount numeric(14, 2) not null default 0.00,
+  allocated_amount numeric(14, 2) not null default 0.00 check (allocated_amount >= 0),
+  created_at timestamptz not null default now()
 );
 
+create or replace function public.sync_payment_alloc_fields()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.document_id is null and new.sale_id is not null then
+    new.document_id := new.sale_id;
+  elsif new.sale_id is null and new.document_id is not null and new.document_type = 'sale' then
+    new.sale_id := new.document_id;
+  end if;
+
+  if new.amount = 0 and new.allocated_amount > 0 then
+    new.amount := new.allocated_amount;
+  elsif new.allocated_amount = 0 and new.amount > 0 then
+    new.allocated_amount := new.amount;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_sync_payment_alloc_fields on public.payment_allocations;
+create trigger trg_sync_payment_alloc_fields
+  before insert or update on public.payment_allocations
+  for each row execute function public.sync_payment_alloc_fields();
+
 create index if not exists idx_payment_alloc_sale on public.payment_allocations (sale_id);
+create index if not exists idx_payment_alloc_doc on public.payment_allocations (document_type, document_id);
 
 -- 5. Atomic RPC: Confirm Sale
 create or replace function public.confirm_sale(

@@ -14,6 +14,7 @@ create table if not exists public.purchases (
   subtotal numeric(14, 2) not null default 0.00 check (subtotal >= 0),
   tax_amount numeric(14, 2) not null default 0.00 check (tax_amount >= 0),
   discount_amount numeric(14, 2) not null default 0.00 check (discount_amount >= 0),
+  total numeric(14, 2) not null default 0.00 check (total >= 0),
   total_amount numeric(14, 2) not null default 0.00 check (total_amount >= 0),
   paid_amount numeric(14, 2) not null default 0.00 check (paid_amount >= 0),
   notes text,
@@ -22,6 +23,25 @@ create table if not exists public.purchases (
   updated_at timestamptz not null default now(),
   unique (organization_id, purchase_number)
 );
+
+create or replace function public.sync_purchase_totals()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.total = 0 and new.total_amount > 0 then
+    new.total := new.total_amount;
+  elsif new.total_amount = 0 and new.total > 0 then
+    new.total_amount := new.total;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_sync_purchase_totals on public.purchases;
+create trigger trg_sync_purchase_totals
+  before insert or update on public.purchases
+  for each row execute function public.sync_purchase_totals();
 
 create index if not exists idx_purchases_org_supp on public.purchases (organization_id, supplier_id);
 create index if not exists idx_purchases_org_date on public.purchases (organization_id, purchase_date desc);

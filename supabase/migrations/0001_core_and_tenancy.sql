@@ -10,6 +10,7 @@ create extension if not exists "pgcrypto";
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text not null check (length(btrim(full_name)) > 0),
+  email text,
   phone_number text,
   avatar_url text,
   is_platform_admin boolean not null default false,
@@ -25,14 +26,16 @@ security definer
 set search_path = public, pg_temp
 as $$
 begin
-  insert into public.profiles (id, full_name, phone_number)
+  insert into public.profiles (id, full_name, email, phone_number)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
+    new.email,
     new.raw_user_meta_data->>'phone_number'
   )
   on conflict (id) do update
   set full_name = coalesce(excluded.full_name, public.profiles.full_name),
+      email = coalesce(excluded.email, public.profiles.email),
       updated_at = now();
   return new;
 end;
@@ -48,6 +51,8 @@ create table if not exists public.organizations (
   id uuid primary key default gen_random_uuid(),
   name text not null check (length(btrim(name)) between 2 and 160),
   slug text not null unique check (slug ~ '^[a-z0-9-]+$'),
+  currency text not null default 'MMK',
+  timezone text not null default 'Asia/Yangon',
   tax_id text,
   is_active boolean not null default true,
   created_at timestamptz not null default now(),

@@ -19,16 +19,35 @@ create index if not exists idx_exp_cat_org on public.expense_categories (organiz
 create table if not exists public.expenses (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
-  category_id uuid not null references public.expense_categories(id) on delete restrict,
+  category text not null default 'General',
+  category_id uuid references public.expense_categories(id) on delete set null,
   expense_date date not null default current_date,
   amount numeric(14, 2) not null check (amount > 0),
-  payment_method text not null check (payment_method in ('cash', 'bank_transfer', 'mobile_money', 'kbz_pay', 'wave_pay', 'other')),
+  payment_method text not null default 'cash' check (payment_method in ('cash', 'bank_transfer', 'mobile_money', 'kbz_pay', 'wave_pay', 'other')),
   title text not null check (length(btrim(title)) between 1 and 200),
   notes text,
   receipt_url text,
   created_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now()
 );
+
+-- Trigger to auto-sync category text from category_id if provided
+create or replace function public.sync_expense_category_name()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.category_id is not null and (new.category is null or new.category = 'General') then
+    select name into new.category from public.expense_categories where id = new.category_id;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_sync_expense_category_name on public.expenses;
+create trigger trg_sync_expense_category_name
+  before insert or update on public.expenses
+  for each row execute function public.sync_expense_category_name();
 
 create index if not exists idx_expenses_org_date on public.expenses (organization_id, expense_date desc);
 

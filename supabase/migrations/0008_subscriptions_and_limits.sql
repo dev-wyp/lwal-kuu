@@ -7,6 +7,8 @@
 create table if not exists public.plans (
   id text primary key,
   name text not null,
+  price numeric(12, 2) not null default 15000.00,
+  billing_interval text not null default 'month',
   monthly_price_mmk numeric(12, 2) not null,
   yearly_price_mmk numeric(12, 2) not null,
   trial_days integer not null default 14,
@@ -18,12 +20,14 @@ create table if not exists public.plans (
 );
 
 -- Seed Initial Suggested Plans (Section 11)
-insert into public.plans (id, name, monthly_price_mmk, yearly_price_mmk, trial_days, max_users, max_products, max_monthly_sales, features)
+insert into public.plans (id, name, price, billing_interval, monthly_price_mmk, yearly_price_mmk, trial_days, max_users, max_products, max_monthly_sales, features)
 values
-  ('starter', 'Starter Plan', 15000.00, 150000.00, 14, 2, 200, 300, '{"multi_user": true, "inventory": true, "basic_reports": true}'::jsonb),
-  ('business', 'Business Plan', 30000.00, 300000.00, 14, 5, 1000, 1500, '{"multi_user": true, "inventory": true, "gross_profit": true, "customer_ledgers": true}'::jsonb),
-  ('pro', 'Pro Plan', 60000.00, 600000.00, 14, 15, 5000, 10000, '{"multi_user": true, "inventory": true, "unlimited_reports": true, "priority_support": true, "api_access": true}'::jsonb)
+  ('starter', 'Starter Plan', 15000.00, 'month', 15000.00, 150000.00, 14, 2, 200, 300, '{"multi_user": true, "inventory": true, "basic_reports": true}'::jsonb),
+  ('business', 'Business Plan', 30000.00, 'month', 30000.00, 300000.00, 14, 5, 1000, 1500, '{"multi_user": true, "inventory": true, "gross_profit": true, "customer_ledgers": true}'::jsonb),
+  ('pro', 'Pro Plan', 60000.00, 'month', 60000.00, 600000.00, 14, 15, 5000, 10000, '{"multi_user": true, "inventory": true, "unlimited_reports": true, "priority_support": true, "api_access": true}'::jsonb)
 on conflict (id) do update set
+  price = excluded.price,
+  billing_interval = excluded.billing_interval,
   monthly_price_mmk = excluded.monthly_price_mmk,
   yearly_price_mmk = excluded.yearly_price_mmk,
   max_users = excluded.max_users,
@@ -37,13 +41,40 @@ create table if not exists public.subscriptions (
   plan_id text not null references public.plans(id) on delete restrict,
   status text not null check (status in ('trialing', 'active', 'past_due', 'expired', 'canceled')),
   billing_cycle text not null default 'monthly' check (billing_cycle in ('monthly', 'yearly')),
+  starts_at timestamptz not null default now(),
+  expires_at timestamptz not null default (now() + interval '14 days'),
   current_period_start timestamptz not null default now(),
-  current_period_end timestamptz not null,
+  current_period_end timestamptz not null default (now() + interval '14 days'),
   trial_ends_at timestamptz,
   cancel_at_period_end boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create or replace function public.sync_subscription_dates()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.starts_at is null then
+    new.starts_at := new.current_period_start;
+  else
+    new.current_period_start := new.starts_at;
+  end if;
+
+  if new.expires_at is null then
+    new.expires_at := new.current_period_end;
+  else
+    new.current_period_end := new.expires_at;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_sync_subscription_dates on public.subscriptions;
+create trigger trg_sync_subscription_dates
+  before insert or update on public.subscriptions
+  for each row execute function public.sync_subscription_dates();
 
 create index if not exists idx_subscriptions_status on public.subscriptions (status);
 

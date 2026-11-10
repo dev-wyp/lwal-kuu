@@ -42,6 +42,8 @@ create table if not exists public.products (
   description text,
   category_id uuid references public.product_categories(id) on delete set null,
   unit_id uuid not null references public.units(id) on delete restrict,
+  cost_price numeric(14, 2) not null default 0.00 check (cost_price >= 0),
+  selling_price numeric(14, 2) not null default 0.00 check (selling_price >= 0),
   purchase_price numeric(14, 2) not null default 0.00 check (purchase_price >= 0),
   sale_price numeric(14, 2) not null default 0.00 check (sale_price >= 0),
   average_cost numeric(14, 4) not null default 0.0000 check (average_cost >= 0),
@@ -51,6 +53,33 @@ create table if not exists public.products (
   updated_at timestamptz not null default now(),
   unique (organization_id, sku)
 );
+
+-- Trigger to keep cost_price / purchase_price and selling_price / sale_price in sync
+create or replace function public.sync_product_pricing()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.cost_price = 0 and new.purchase_price > 0 then
+    new.cost_price := new.purchase_price;
+  elsif new.purchase_price = 0 and new.cost_price > 0 then
+    new.purchase_price := new.cost_price;
+  end if;
+
+  if new.selling_price = 0 and new.sale_price > 0 then
+    new.selling_price := new.sale_price;
+  elsif new.sale_price = 0 and new.selling_price > 0 then
+    new.sale_price := new.selling_price;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_sync_product_pricing on public.products;
+create trigger trg_sync_product_pricing
+  before insert or update on public.products
+  for each row execute function public.sync_product_pricing();
 
 create index if not exists idx_products_org_name on public.products (organization_id, name);
 create index if not exists idx_products_org_sku on public.products (organization_id, sku);
