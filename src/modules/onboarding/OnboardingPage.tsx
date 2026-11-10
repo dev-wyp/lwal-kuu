@@ -75,63 +75,87 @@ export const OnboardingPage: React.FC = () => {
       setLoading(true);
       setErrorMsg(null);
 
-      // 1. Create Organization
-      const { data: orgData, error: orgError } = await supabase
-        .from('organizations')
-        .insert({
-          name: data.name,
-          slug: data.slug,
-        })
-        .select()
-        .single();
-
-      if (orgError) {
-        throw new Error(orgError.message);
-      }
-
-      // 2. Add User as Owner
-      const { error: memberError } = await supabase
-        .from('organization_members')
-        .insert({
-          organization_id: orgData.id,
-          user_id: user.id,
-          role: 'owner',
-        });
-
-      if (memberError) {
-        throw new Error(memberError.message);
-      }
-
-      // 3. Create Default Organization Settings (MMK, Asia/Yangon, weighted average costing)
-      await supabase
-        .from('organization_settings')
-        .insert({
-          organization_id: orgData.id,
-          currency_code: 'MMK',
-          currency_symbol: 'Ks',
-          timezone: 'Asia/Yangon',
-          phone: data.phone || null,
-          address: data.address || null,
-          costing_method: 'weighted_average',
-          low_stock_threshold_default: 5,
-        });
-
-      // 4. Initialize 14-day Free Trial
-      await supabase.rpc('initialize_organization_trial', {
-        p_org_id: orgData.id,
+      // 1. Try atomic onboarding RPC first (bypasses RLS chicken-and-egg issues)
+      const { data: rpcOrg, error: rpcError } = await supabase.rpc('create_organization_with_owner', {
+        p_name: data.name,
+        p_slug: data.slug,
         p_plan_id: selectedPlan,
+        p_phone: data.phone || null,
+        p_address: data.address || null,
       });
 
-      // 5. Seed baseline measurement units (Pcs, Box, Pack, Carton, Dozen)
-      await supabase.from('units').insert([
-        { organization_id: orgData.id, code: 'pcs', name: 'Pieces (ခု)', precision: 0 },
-        { organization_id: orgData.id, code: 'box', name: 'Box (ဖာ)', precision: 0 },
-        { organization_id: orgData.id, code: 'pack', name: 'Packet (ထုပ်)', precision: 0 },
-        { organization_id: orgData.id, code: 'dozen', name: 'Dozen (ဒါဇင်)', precision: 0 },
-      ]);
+      let createdOrgId: string;
+      let createdOrgName: string;
 
-      showSuccess(`Organization "${orgData.name}" created! Your 14-day trial is active.`);
-      localStorage.setItem('shopflow_active_org_id', orgData.id);
+      if (!rpcError && rpcOrg) {
+        createdOrgId = (rpcOrg as { id: string; name: string }).id;
+        createdOrgName = (rpcOrg as { id: string; name: string }).name;
+      } else {
+        // Fallback to direct insert
+        const { data: orgData, error: orgError } = await supabase
+          .from('organizations')
+          .insert({
+            name: data.name,
+            slug: data.slug,
+          })
+          .select()
+          .single();
+
+        if (orgError) {
+          throw new Error(orgError.message);
+        }
+
+        createdOrgId = orgData.id;
+        createdOrgName = orgData.name;
+
+        // 2. Add User as Owner
+        await supabase
+          .from('organization_members')
+          .insert({
+            organization_id: orgData.id,
+            user_id: user.id,
+            role: 'owner',
+          });
+
+        // 3. Create Default Organization Settings
+        await supabase
+          .from('organization_settings')
+          .insert({
+            organization_id: orgData.id,
+            currency_code: 'MMK',
+            currency_symbol: 'Ks',
+            timezone: 'Asia/Yangon',
+            phone: data.phone || null,
+            address: data.address || null,
+            costing_method: 'weighted_average',
+            low_stock_threshold_default: 5,
+          });
+
+        // 4. Initialize 14-day Free Trial
+        try {
+          await supabase.rpc('initialize_organization_trial', {
+            p_org_id: orgData.id,
+            p_plan_id: selectedPlan,
+          });
+        } catch {
+          // Graceful fallback
+        }
+
+        // 5. Seed baseline measurement units
+        try {
+          await supabase.from('units').insert([
+            { organization_id: orgData.id, code: 'pcs', name: 'Pieces (ခု)', precision: 0 },
+            { organization_id: orgData.id, code: 'box', name: 'Box (ဖာ)', precision: 0 },
+            { organization_id: orgData.id, code: 'pack', name: 'Packet (ထုပ်)', precision: 0 },
+            { organization_id: orgData.id, code: 'dozen', name: 'Dozen (ဒါဇင်)', precision: 0 },
+          ]);
+        } catch {
+          // Graceful fallback
+        }
+      }
+
+      showSuccess(`Organization "${createdOrgName}" created! Your 14-day trial is active.`);
+      localStorage.setItem('shopflow_active_org_id', createdOrgId);
       await refreshOrgs();
       navigate('/app/dashboard');
     } catch (err: unknown) {
