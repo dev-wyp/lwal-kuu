@@ -246,3 +246,4 @@ $$;
 
 -- Reload schema cache
 notify pgrst, 'reload schema';
+

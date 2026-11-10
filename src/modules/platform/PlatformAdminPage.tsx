@@ -592,10 +592,11 @@ export const PlatformAdminPage: React.FC = () => {
                         <TableCell>{evt.payment_method || '-'}</TableCell>
                         <TableCell>{evt.payment_reference || '-'}</TableCell>
                         <TableCell align="center">
-                          {evt.event_type === 'payment_submitted' && (
+                          {evt.event_type === 'payment_submitted' ? (
                             <Button
                               size="small"
                               variant="contained"
+                              disabled={processing}
                               onClick={() => {
                                 setReviewEvent(evt);
                                 setOverridePlanId(evt.plan_id || 'business');
@@ -603,6 +604,26 @@ export const PlatformAdminPage: React.FC = () => {
                               sx={{ borderRadius: 2, fontSize: 11, py: 0.4 }}
                             >
                               Review & Approve
+                            </Button>
+                          ) : (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              disabled
+                              sx={{
+                                borderRadius: 2,
+                                fontSize: 11,
+                                py: 0.3,
+                                px: 1.5,
+                                fontWeight: 700,
+                                '&.Mui-disabled': {
+                                  color: evt.event_type === 'payment_approved' ? '#16a34a' : '#dc2626',
+                                  borderColor: evt.event_type === 'payment_approved' ? '#bbf7d0' : '#fecaca',
+                                  bgcolor: evt.event_type === 'payment_approved' ? '#f0fdf4' : '#fef2f2',
+                                },
+                              }}
+                            >
+                              {evt.event_type === 'payment_approved' ? '✓ Approved' : '✕ Rejected'}
                             </Button>
                           )}
                         </TableCell>
