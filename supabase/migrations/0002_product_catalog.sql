@@ -3,6 +3,20 @@
 -- Description: Product categories, measurement units, products master, and RLS.
 -- ==============================================================================
 
+-- Drop legacy non-multitenant products table if it pre-exists from old starter
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'products'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'products' and column_name = 'organization_id'
+  ) then
+    drop table public.products cascade;
+  end if;
+end $$;
+
 -- 1. Product Categories
 create table if not exists public.product_categories (
   id uuid primary key default gen_random_uuid(),
