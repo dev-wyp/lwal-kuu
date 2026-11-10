@@ -47,6 +47,19 @@ create trigger on_auth_user_created
   for each row execute function public.handle_new_user();
 
 -- 2. Organizations
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'organizations'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'organizations' and column_name = 'slug'
+  ) then
+    drop table public.organizations cascade;
+  end if;
+end $$;
+
 create table if not exists public.organizations (
   id uuid primary key default gen_random_uuid(),
   name text not null check (length(btrim(name)) between 2 and 160),

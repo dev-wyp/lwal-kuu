@@ -3,12 +3,60 @@
 -- Description: Customers and Suppliers directories with credit limits and balances.
 -- ==============================================================================
 
--- Ensure organizations & organization_members have required columns even if pre-existing
+-- Ensure organizations table is authoritative with slug, currency, timezone, is_active
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables 
+    where table_schema = 'public' and table_name = 'organizations'
+  ) and not exists (
+    select 1 from information_schema.columns 
+    where table_schema = 'public' and table_name = 'organizations' and column_name = 'slug'
+  ) then
+    drop table public.organizations cascade;
+  end if;
+end $$;
+
+create table if not exists public.organizations (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (length(btrim(name)) between 2 and 160),
+  slug text not null unique check (slug ~ '^[a-z0-9-]+$'),
+  currency text not null default 'MMK',
+  timezone text not null default 'Asia/Yangon',
+  tax_id text,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table if exists public.organizations 
+  add column if not exists slug text,
   add column if not exists is_active boolean not null default true,
   add column if not exists currency text not null default 'MMK',
   add column if not exists timezone text not null default 'Asia/Yangon',
   add column if not exists tax_id text;
+
+alter table public.organizations enable row level security;
+
+drop policy if exists "Members can view own organization" on public.organizations;
+create policy "Members can view own organization"
+  on public.organizations for select
+  using (
+    id in (
+      select organization_id from public.organization_members
+      where user_id = auth.uid() and is_active = true
+    ) or public.is_platform_admin()
+  );
+
+drop policy if exists "Authenticated users can create organization" on public.organizations;
+create policy "Authenticated users can create organization"
+  on public.organizations for insert
+  with check (auth.role() = 'authenticated');
+
+drop policy if exists "Admins and owners can update organization" on public.organizations;
+create policy "Admins and owners can update organization"
+  on public.organizations for update
+  using (public.is_org_admin_or_owner(id) or public.is_platform_admin());
 
 alter table if exists public.organization_members
   add column if not exists is_active boolean not null default true;
