@@ -21,19 +21,25 @@ import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { useQuery } from '@tanstack/react-query';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useOrg } from '@/context/OrgContext';
+import { useNotification } from '@/context/NotificationContext';
 import { ProductModal } from './ProductModal';
 
 export const ProductsPage: React.FC = () => {
   const { currentOrg, formatCurrency } = useOrg();
+  const { showSuccess, showError } = useNotification();
+  const queryClient = useQueryClient();
   const orgId = currentOrg?.id;
 
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [importing, setImporting] = useState(false);
 
   // 1. Fetch Categories
   const { data: categories = [] } = useQuery({
@@ -116,6 +122,77 @@ export const ProductsPage: React.FC = () => {
     enabled: Boolean(orgId),
   });
 
+  const handleDownloadTemplate = () => {
+    const csvContent =
+      'sku,name,sale_price,cost_price,low_stock_threshold\n' +
+      'SKU-001,Premium Jasmine Rice 50kg,85000,75000,10\n' +
+      'SKU-002,Sunflower Cooking Oil 1L,6500,5500,20\n' +
+      'SKU-003,Instant Noodles Box (30pk),18000,15000,15\n';
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'shopflow_product_import_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !orgId) return;
+
+    try {
+      setImporting(true);
+      const text = await file.text();
+      const lines = text.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+      if (lines.length <= 1) {
+        showError('CSV file is empty or has no data rows');
+        return;
+      }
+
+      const defaultUnitId = units[0]?.id;
+      if (!defaultUnitId) {
+        showError('Please create at least one measurement unit first');
+        return;
+      }
+
+      const productsToInsert = [];
+      for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].split(',').map((p) => p.trim());
+        if (parts.length >= 2 && parts[1]) {
+          productsToInsert.push({
+            organization_id: orgId,
+            sku: parts[0] || `SKU-${Date.now()}-${i}`,
+            name: parts[1],
+            unit_id: defaultUnitId,
+            sale_price: Number(parts[2]) || 0,
+            average_cost: Number(parts[3]) || 0,
+            cost_price: Number(parts[3]) || 0,
+            low_stock_threshold: Number(parts[4]) || 5,
+            is_active: true,
+          });
+        }
+      }
+
+      if (productsToInsert.length === 0) {
+        showError('No valid product rows parsed from CSV');
+        return;
+      }
+
+      const { error } = await supabase.from('products').insert(productsToInsert);
+      if (error) throw error;
+
+      showSuccess(`Successfully imported ${productsToInsert.length} products!`);
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    } catch (err: any) {
+      showError(err.message || 'Failed to import products');
+    } finally {
+      setImporting(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
   const handleOpenAdd = () => {
     setEditingProduct(null);
     setModalOpen(true);
@@ -128,7 +205,7 @@ export const ProductsPage: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
             Product Catalog
@@ -137,14 +214,38 @@ export const ProductsPage: React.FC = () => {
             Manage wholesale products, inventory pricing, and stock thresholds.
           </Typography>
         </div>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleOpenAdd}
-          sx={{ borderRadius: 2, bgcolor: '#0f172a', fontWeight: 600 }}
-        >
-          Add Product
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<FileDownloadIcon />}
+            onClick={handleDownloadTemplate}
+            sx={{ borderRadius: 2, fontWeight: 600, borderColor: '#cbd5e1', color: '#475569' }}
+          >
+            Template
+          </Button>
+
+          <Button
+            variant="outlined"
+            size="small"
+            component="label"
+            disabled={importing}
+            startIcon={importing ? <CircularProgress size={16} /> : <UploadFileIcon />}
+            sx={{ borderRadius: 2, fontWeight: 600, borderColor: '#cbd5e1', color: '#0284c7' }}
+          >
+            Import CSV
+            <input type="file" accept=".csv" hidden onChange={handleFileUpload} />
+          </Button>
+
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleOpenAdd}
+            sx={{ borderRadius: 2, bgcolor: '#0f172a', fontWeight: 600 }}
+          >
+            Add Product
+          </Button>
+        </Box>
       </Box>
 
       {/* Filter Bar */}

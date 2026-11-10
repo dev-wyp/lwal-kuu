@@ -28,6 +28,7 @@ import LoyaltyIcon from '@mui/icons-material/Loyalty';
 import PeopleIcon from '@mui/icons-material/People';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import LogoutIcon from '@mui/icons-material/Logout';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import SecurityIcon from '@mui/icons-material/Security';
@@ -46,6 +47,7 @@ const adminNavItems: AdminNavItem[] = [
   { title: 'Global Platform Users', path: '/admin/users', icon: <PeopleIcon fontSize="small" /> },
   { title: 'Usage Analytics', path: '/admin/analytics', icon: <AssessmentIcon fontSize="small" /> },
   { title: 'Platform Audit Logs', path: '/admin/audit-logs', icon: <ReceiptLongIcon fontSize="small" /> },
+  { title: 'Automations & Crons', path: '/admin/automations', icon: <AutoAwesomeIcon fontSize="small" /> },
 ];
 
 export const AdminLayout: React.FC = () => {

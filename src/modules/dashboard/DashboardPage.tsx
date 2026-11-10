@@ -22,6 +22,9 @@ import InventoryIcon from '@mui/icons-material/Inventory';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CategoryIcon from '@mui/icons-material/Category';
+import PeopleIcon from '@mui/icons-material/People';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useOrg } from '@/context/OrgContext';
@@ -140,6 +143,118 @@ export const DashboardPage: React.FC = () => {
           Open POS
         </Button>
       </Box>
+
+      {/* Guided Onboarding Checklist for New Shop */}
+      {metrics?.recentSales?.length === 0 && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            mb: 4,
+            borderRadius: 3,
+            bgcolor: '#ffffff',
+            border: '1px solid #bae6fd',
+            boxShadow: '0 4px 20px -2px rgba(2, 132, 199, 0.08)',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <CheckCircleOutlineIcon sx={{ color: '#0284c7', fontSize: 24 }} />
+            <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a' }}>
+              Welcome to ShopFlow! Quick Setup Checklist
+            </Typography>
+            <Chip label="Guided Onboarding" size="small" sx={{ bgcolor: '#e0f2fe', color: '#0369a1', fontWeight: 700, height: 20, fontSize: 10 }} />
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+            Follow these 4 automated steps to initialize your shop catalog, stock ledger, and POS billing:
+          </Typography>
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  '&:hover': { borderColor: '#0284c7', bgcolor: '#f8fafc' },
+                }}
+                onClick={() => navigate('/app/categories')}
+              >
+                <CategoryIcon sx={{ color: '#0284c7', mb: 1 }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  1. Setup Categories
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Organize items into departments or brands &rarr;
+                </Typography>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  '&:hover': { borderColor: '#0284c7', bgcolor: '#f8fafc' },
+                }}
+                onClick={() => navigate('/app/products')}
+              >
+                <InventoryIcon sx={{ color: '#6366f1', mb: 1 }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  2. Add / Import Products
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Add items or import via CSV template &rarr;
+                </Typography>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  '&:hover': { borderColor: '#0284c7', bgcolor: '#f8fafc' },
+                }}
+                onClick={() => navigate('/app/customers')}
+              >
+                <PeopleIcon sx={{ color: '#10b981', mb: 1 }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  3. Add Customers & Debt
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Register buyers and credit terms &rarr;
+                </Typography>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  cursor: 'pointer',
+                  '&:hover': { borderColor: '#0284c7', bgcolor: '#f8fafc' },
+                }}
+                onClick={() => navigate('/app/sales')}
+              >
+                <PointOfSaleIcon sx={{ color: '#f59e0b', mb: 1 }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  4. Make First POS Sale
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Create invoice & deduct stock ledger &rarr;
+                </Typography>
+              </Paper>
+            </Grid>
+          </Grid>
+        </Paper>
+      )}
 
       {/* KPI Cards */}
       <Grid container spacing={2.5} sx={{ mb: 4 }}>

@@ -129,3 +129,4 @@ where se1.event_type = 'payment_submitted'
 
 -- Reload schema cache
 notify pgrst, 'reload schema';
+

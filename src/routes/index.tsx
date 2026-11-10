@@ -94,6 +94,7 @@ export const router = createBrowserRouter([
       { path: 'subscriptions', element: <PlatformAdminPage /> },
       { path: 'audit-logs', element: <PlatformAdminPage /> },
       { path: 'analytics', element: <PlatformAdminPage /> },
+      { path: 'automations', element: <PlatformAdminPage /> },
       { path: 'users', element: <AdminUsersPage /> },
     ],
   },

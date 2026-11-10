@@ -39,6 +39,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import BlockIcon from '@mui/icons-material/Block';
 import SearchIcon from '@mui/icons-material/Search';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
@@ -58,6 +59,7 @@ export const PlatformAdminPage: React.FC = () => {
     '/admin/subscriptions',
     '/admin/audit-logs',
     '/admin/analytics',
+    '/admin/automations',
   ];
 
   const currentTabIndex = useMemo(() => {
@@ -65,6 +67,7 @@ export const PlatformAdminPage: React.FC = () => {
     if (p.includes('subscription')) return 1;
     if (p.includes('audit-log')) return 2;
     if (p.includes('analytic') || p.includes('usage')) return 3;
+    if (p.includes('automation')) return 4;
     return 0;
   }, [location.pathname]);
 
@@ -165,6 +168,46 @@ export const PlatformAdminPage: React.FC = () => {
     },
     enabled: isPlatformAdmin,
   });
+
+  // 5. Fetch Notification Outbox
+  const { data: outboxItems = [], isLoading: outboxLoading, refetch: refetchOutbox } = useQuery({
+    queryKey: ['platform_outbox'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('notification_outbox')
+        .select(`
+          *,
+          organizations(name)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: isPlatformAdmin,
+  });
+
+  const [cronRunning, setCronRunning] = useState(false);
+  const [cronResult, setCronResult] = useState<any>(null);
+
+  const handleTriggerAutomations = async () => {
+    try {
+      setCronRunning(true);
+      const { data, error } = await supabase.rpc('cron_run_all_automations');
+      if (error) throw error;
+      setCronResult(data);
+      showSuccess('All background automation cron jobs executed successfully!');
+      queryClient.invalidateQueries({ queryKey: ['platform_outbox'] });
+      queryClient.invalidateQueries({ queryKey: ['platform_all_orgs'] });
+      queryClient.invalidateQueries({ queryKey: ['platform_sub_events'] });
+      queryClient.invalidateQueries({ queryKey: ['platform_metrics'] });
+    } catch (err: any) {
+      showError(err.message || 'Failed to execute automation jobs');
+    } finally {
+      setCronRunning(false);
+    }
+  };
 
   // Guard: platform admin only
   if (!isPlatformAdmin) {
@@ -280,6 +323,7 @@ export const PlatformAdminPage: React.FC = () => {
     refetchOrgs();
     refetchEvents();
     refetchAudit();
+    refetchOutbox();
   };
 
   // Metric values
@@ -396,6 +440,7 @@ export const PlatformAdminPage: React.FC = () => {
           <Tab label={`Subscriptions & Approvals (${subEvents.length})`} sx={{ fontWeight: 600 }} />
           <Tab label="Platform Audit Logs" sx={{ fontWeight: 600 }} />
           <Tab label="Usage Analytics" sx={{ fontWeight: 600 }} />
+          <Tab label={`Automations & Outbox (${outboxItems.length})`} sx={{ fontWeight: 600 }} />
         </Tabs>
 
         {/* Tab 0: Tenant Organizations */}
@@ -735,6 +780,102 @@ export const PlatformAdminPage: React.FC = () => {
                 </Paper>
               </Grid>
             </Grid>
+          </Box>
+        )}
+
+        {/* Tab 4: Automations & Outbox */}
+        {currentTabIndex === 4 && (
+          <Box sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+              <div>
+                <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                  Automated Background Crons & Notification Outbox
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Executes subscription expiration, low stock alerts, renewal reminders, daily sales, and weekly summaries.
+                </Typography>
+              </div>
+
+              <Button
+                variant="contained"
+                color="error"
+                startIcon={cronRunning ? <CircularProgress size={18} sx={{ color: '#ffffff' }} /> : <PlayArrowIcon />}
+                onClick={handleTriggerAutomations}
+                disabled={cronRunning}
+                sx={{ borderRadius: 2, fontWeight: 700 }}
+              >
+                {cronRunning ? 'Executing Crons...' : 'Trigger All Automations Now'}
+              </Button>
+            </Box>
+
+            {cronResult && (
+              <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Automation Run Complete at {new Date(cronResult.executed_at).toLocaleTimeString()}:
+                </Typography>
+                <Typography variant="body2" sx={{ fontSize: 13 }}>
+                  &bull; Subscriptions Checked: {cronResult.subscriptions_checked?.expired_or_past_due_count || 0} expired/past-due updated<br />
+                  &bull; Daily Sales Summaries: {cronResult.daily_summaries?.queued_summaries || 0} queued<br />
+                  &bull; Low Stock Alerts: {cronResult.low_stock_alerts?.queued_low_stock_alerts || 0} queued<br />
+                  &bull; Renewal Notices: {cronResult.renewal_reminders?.queued_renewal_reminders || 0} queued<br />
+                  &bull; Weekly Summaries: {cronResult.weekly_summaries?.queued_weekly_summaries || 0} queued
+                </Typography>
+              </Alert>
+            )}
+
+            <TableContainer sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+              <Table size="small">
+                <TableHead sx={{ bgcolor: '#f8fafc' }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700 }}>Queued Time</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Organization</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Notification Type</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Recipient</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Subject</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700 }}>Status</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {outboxLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                        <CircularProgress size={32} />
+                      </TableCell>
+                    </TableRow>
+                  ) : outboxItems.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                        No queued notifications in outbox. Click &quot;Trigger All Automations Now&quot; to scan.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    outboxItems.map((item: any) => (
+                      <TableRow key={item.id} hover>
+                        <TableCell>{new Date(item.created_at).toLocaleString()}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{item.organizations?.name || 'Platform'}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={item.notification_type}
+                            size="small"
+                            sx={{ height: 22, fontSize: 10, fontWeight: 700, bgcolor: '#f1f5f9' }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>{item.recipient_email}</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>{item.subject}</TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={item.status.toUpperCase()}
+                            size="small"
+                            color={item.status === 'sent' ? 'success' : item.status === 'pending' ? 'warning' : 'error'}
+                            sx={{ height: 20, fontSize: 10, fontWeight: 800 }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Box>
         )}
       </Paper>
