@@ -72,10 +72,19 @@ export const PlatformAdminPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
   const [reviewEvent, setReviewEvent] = useState<any>(null);
   const [adminNotes, setAdminNotes] = useState('');
+  const [overridePlanId, setOverridePlanId] = useState<string>('business');
   const [processing, setProcessing] = useState(false);
 
   // Status toggle confirmation dialog state
   const [statusDialogOrg, setStatusDialogOrg] = useState<{ id: string; name: string; is_active: boolean } | null>(null);
+
+  // Direct Plan Change Dialog state
+  const [planChangeDialog, setPlanChangeDialog] = useState<{
+    orgId: string;
+    orgName: string;
+    selectedPlan: string;
+    durationMonths: number;
+  } | null>(null);
 
   const isPlatformAdmin = Boolean(profile?.is_platform_admin);
 
@@ -222,17 +231,45 @@ export const PlatformAdminPage: React.FC = () => {
         p_event_id: reviewEvent.id,
         p_approve: approve,
         p_admin_notes: adminNotes || null,
+        p_target_plan_id: overridePlanId || null,
       });
 
       if (error) throw error;
 
-      showSuccess(`Payment ${approve ? 'approved and subscription activated' : 'rejected'}`);
+      showSuccess(`Payment ${approve ? `approved and activated to plan "${overridePlanId.toUpperCase()}"` : 'rejected'}`);
       queryClient.invalidateQueries({ queryKey: ['platform_all_orgs'] });
       queryClient.invalidateQueries({ queryKey: ['platform_sub_events'] });
+      queryClient.invalidateQueries({ queryKey: ['platform_metrics'] });
       setReviewEvent(null);
       setAdminNotes('');
     } catch (err: any) {
       showError(err.message || 'Verification failed');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleDirectPlanChange = async () => {
+    if (!planChangeDialog) return;
+
+    try {
+      setProcessing(true);
+      const { error } = await supabase.rpc('admin_change_organization_plan', {
+        p_org_id: planChangeDialog.orgId,
+        p_plan_id: planChangeDialog.selectedPlan,
+        p_status: 'active',
+        p_duration_months: planChangeDialog.durationMonths,
+      });
+
+      if (error) throw error;
+
+      showSuccess(`Plan for "${planChangeDialog.orgName}" updated to ${planChangeDialog.selectedPlan.toUpperCase()} for ${planChangeDialog.durationMonths} month(s).`);
+      queryClient.invalidateQueries({ queryKey: ['platform_all_orgs'] });
+      queryClient.invalidateQueries({ queryKey: ['platform_sub_events'] });
+      queryClient.invalidateQueries({ queryKey: ['platform_metrics'] });
+      setPlanChangeDialog(null);
+    } catch (err: any) {
+      showError(err.message || 'Failed to update plan');
     } finally {
       setProcessing(false);
     }
@@ -450,29 +487,44 @@ export const PlatformAdminPage: React.FC = () => {
                             />
                           </TableCell>
                           <TableCell align="center">
-                            {org.is_active ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                               <Button
                                 size="small"
                                 variant="outlined"
-                                color="error"
-                                startIcon={<BlockIcon fontSize="small" />}
-                                onClick={() => setStatusDialogOrg({ id: org.id, name: org.name, is_active: true })}
-                                sx={{ borderRadius: 1.5, fontSize: 11, py: 0.3 }}
+                                onClick={() => setPlanChangeDialog({
+                                  orgId: org.id,
+                                  orgName: org.name,
+                                  selectedPlan: sub?.plan_id || 'business',
+                                  durationMonths: 1,
+                                })}
+                                sx={{ borderRadius: 1.5, fontSize: 11, py: 0.3, color: '#0284c7', borderColor: '#bae6fd' }}
                               >
-                                Suspend
+                                Plan
                               </Button>
-                            ) : (
-                              <Button
-                                size="small"
-                                variant="contained"
-                                color="success"
-                                startIcon={<CheckCircleIcon fontSize="small" />}
-                                onClick={() => setStatusDialogOrg({ id: org.id, name: org.name, is_active: false })}
-                                sx={{ borderRadius: 1.5, fontSize: 11, py: 0.3 }}
-                              >
-                                Activate
-                              </Button>
-                            )}
+                              {org.is_active ? (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="error"
+                                  startIcon={<BlockIcon fontSize="small" />}
+                                  onClick={() => setStatusDialogOrg({ id: org.id, name: org.name, is_active: true })}
+                                  sx={{ borderRadius: 1.5, fontSize: 11, py: 0.3 }}
+                                >
+                                  Suspend
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="small"
+                                  variant="contained"
+                                  color="success"
+                                  startIcon={<CheckCircleIcon fontSize="small" />}
+                                  onClick={() => setStatusDialogOrg({ id: org.id, name: org.name, is_active: false })}
+                                  sx={{ borderRadius: 1.5, fontSize: 11, py: 0.3 }}
+                                >
+                                  Activate
+                                </Button>
+                              )}
+                            </Box>
                           </TableCell>
                         </TableRow>
                       );
@@ -494,6 +546,7 @@ export const PlatformAdminPage: React.FC = () => {
                     <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Organization</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Event</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Requested Plan</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700 }}>Amount</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Method</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Reference</TableCell>
@@ -503,13 +556,13 @@ export const PlatformAdminPage: React.FC = () => {
                 <TableBody>
                   {eventsLoading ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                      <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
                         <CircularProgress size={32} />
                       </TableCell>
                     </TableRow>
                   ) : subEvents.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                      <TableCell colSpan={8} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                         No pending subscription verification requests.
                       </TableCell>
                     </TableRow>
@@ -526,6 +579,13 @@ export const PlatformAdminPage: React.FC = () => {
                             sx={{ height: 22, fontSize: 11 }}
                           />
                         </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={evt.plan_id ? evt.plan_id.toUpperCase() : 'BUSINESS'}
+                            size="small"
+                            sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: '#e0f2fe', color: '#0369a1' }}
+                          />
+                        </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700 }}>
                           {evt.amount ? `${Number(evt.amount).toLocaleString()} MMK` : '-'}
                         </TableCell>
@@ -536,7 +596,10 @@ export const PlatformAdminPage: React.FC = () => {
                             <Button
                               size="small"
                               variant="contained"
-                              onClick={() => setReviewEvent(evt)}
+                              onClick={() => {
+                                setReviewEvent(evt);
+                                setOverridePlanId(evt.plan_id || 'business');
+                              }}
                               sx={{ borderRadius: 2, fontSize: 11, py: 0.4 }}
                             >
                               Review & Approve
@@ -708,6 +771,19 @@ export const PlatformAdminPage: React.FC = () => {
             <strong>Reference / Trx ID:</strong> {reviewEvent?.payment_reference}
           </Typography>
 
+          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+            <InputLabel>Plan to Activate</InputLabel>
+            <Select
+              value={overridePlanId}
+              label="Plan to Activate"
+              onChange={(e) => setOverridePlanId(e.target.value)}
+            >
+              <MenuItem value="starter">Starter Plan (2 Users, 200 Products)</MenuItem>
+              <MenuItem value="business">Business Plan (5 Users, 1,000 Products)</MenuItem>
+              <MenuItem value="pro">Pro Plan (15 Users, 5,000 Products)</MenuItem>
+            </Select>
+          </FormControl>
+
           <TextField
             fullWidth
             size="small"
@@ -734,6 +810,71 @@ export const PlatformAdminPage: React.FC = () => {
             disabled={processing}
           >
             Approve & Activate
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Direct Plan Change Dialog */}
+      <Dialog
+        open={Boolean(planChangeDialog)}
+        onClose={() => setPlanChangeDialog(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          Manage Subscription Plan
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Change subscription plan for <strong>{planChangeDialog?.orgName}</strong>:
+          </Typography>
+
+          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+            <InputLabel>Subscription Plan</InputLabel>
+            <Select
+              value={planChangeDialog?.selectedPlan || 'business'}
+              label="Subscription Plan"
+              onChange={(e) =>
+                setPlanChangeDialog((prev) =>
+                  prev ? { ...prev, selectedPlan: e.target.value } : null
+                )
+              }
+            >
+              <MenuItem value="starter">Starter Plan (2 Users, 200 Products)</MenuItem>
+              <MenuItem value="business">Business Plan (5 Users, 1,000 Products)</MenuItem>
+              <MenuItem value="pro">Pro Plan (15 Users, 5,000 Products)</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth size="small">
+            <InputLabel>Duration</InputLabel>
+            <Select
+              value={planChangeDialog?.durationMonths || 1}
+              label="Duration"
+              onChange={(e) =>
+                setPlanChangeDialog((prev) =>
+                  prev ? { ...prev, durationMonths: Number(e.target.value) } : null
+                )
+              }
+            >
+              <MenuItem value={1}>1 Month</MenuItem>
+              <MenuItem value={3}>3 Months</MenuItem>
+              <MenuItem value={6}>6 Months</MenuItem>
+              <MenuItem value={12}>12 Months (1 Year)</MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setPlanChangeDialog(null)} disabled={processing}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleDirectPlanChange}
+            disabled={processing}
+            sx={{ bgcolor: '#0f172a', fontWeight: 600 }}
+          >
+            {processing ? <CircularProgress size={20} /> : 'Apply Plan Change'}
           </Button>
         </DialogActions>
       </Dialog>
