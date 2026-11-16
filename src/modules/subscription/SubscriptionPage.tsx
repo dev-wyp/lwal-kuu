@@ -331,9 +331,9 @@ export const SubscriptionPage: React.FC = () => {
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                   <AccountBalanceIcon fontSize="small" sx={{ color: '#0284c7' }} /> {t("Payment Destination Accounts:")}</Typography>
                 <Typography variant="body2" sx={{ fontSize: 13 }}>
-                  &bull; <strong>KBZPay / WavePay:</strong> 09-798888888 (ShopFlow SaaS Admin)<br />
-                  &bull; <strong>KBZ Bank:</strong> 123-456-78901234 (ShopFlow Cloud Co., Ltd.)<br />
-                  &bull; <strong>AYA Bank:</strong> 200-345-67890 (ShopFlow Cloud Co., Ltd.)
+                  &bull; <strong>KBZPay / WavePay:</strong> 09-798888888 (Lwal Kuu SaaS Admin)<br />
+                  &bull; <strong>KBZ Bank:</strong> 123-456-78901234 (Lwal Kuu Cloud Co., Ltd.)<br />
+                  &bull; <strong>AYA Bank:</strong> 200-345-67890 (Lwal Kuu Cloud Co., Ltd.)
                 </Typography>
               </Paper>
             </Grid>

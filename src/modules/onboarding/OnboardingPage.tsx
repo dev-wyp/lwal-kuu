@@ -304,7 +304,7 @@ export const OnboardingPage: React.FC = () => {
                   bgcolor: '#0f172a',
                 }}
               >
-                {loading ? <CircularProgress size={24} sx={{ color: '#ffffff' }} /> : t('Launch ShopFlow')}
+                {loading ? <CircularProgress size={24} sx={{ color: '#ffffff' }} /> : t('Launch Lwal Kuu')}
               </Button>
             </Grid>
           </Grid>

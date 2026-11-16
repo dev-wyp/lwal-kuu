@@ -1,4 +1,4 @@
-# ShopFlow — MVP Implementation Checklist
+# Lwal Kuu — MVP Implementation Checklist
 
 This checklist tracks progress across the 8 sequential implementation phases specified in the project requirements.
 

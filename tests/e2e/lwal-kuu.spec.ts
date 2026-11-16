@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('ShopFlow E2E Critical Path Suite', () => {
+test.describe('Lwal Kuu E2E Critical Path Suite', () => {
   test('1. Public Landing and Pricing Page Navigation', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('h1')).toContainText('Manage Products, Sales & Credit Ledgers');
@@ -15,7 +15,7 @@ test.describe('ShopFlow E2E Critical Path Suite', () => {
 
   test('2. Authentication and Form Validations', async ({ page }) => {
     await page.goto('/login');
-    await expect(page.locator('text=Sign In to ShopFlow')).toBeVisible();
+    await expect(page.locator('text=Sign In to Lwal Kuu')).toBeVisible();
 
     // Trigger validation with empty inputs
     await page.click('button[type="submit"]');

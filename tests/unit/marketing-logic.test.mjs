@@ -78,7 +78,7 @@ function assert(condition, message) {
   console.log(`[PASS] ${message}`);
 }
 
-console.log('--- Running ShopFlow Marketing Logic Tests ---');
+console.log('--- Running Lwal Kuu Marketing Logic Tests ---');
 
 assert(engagementRate(25, 500) === 5, 'Engagement rate is Engagements / Reach × 100');
 assert(engagementRate(10, 0) === null, 'Engagement rate is unavailable when reach is zero');
@@ -155,7 +155,7 @@ function buildTrialTrackingUrl(origin, content) {
   const url = new URL('/register', origin);
   url.searchParams.set('utm_source', content.platform);
   url.searchParams.set('utm_medium', 'social');
-  url.searchParams.set('utm_campaign', content.campaign_id || 'shopflow-trial');
+  url.searchParams.set('utm_campaign', content.campaign_id || 'lwal-kuu-trial');
   url.searchParams.set('utm_content', content.id);
   url.searchParams.set('plan', 'starter');
   return url.toString();

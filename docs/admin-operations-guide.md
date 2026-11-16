@@ -1,4 +1,4 @@
-# ShopFlow — Platform Admin & Operations Guide
+# Lwal Kuu — Platform Admin & Operations Guide
 
 ## 1. Overview of Platform Administration
 
@@ -48,7 +48,7 @@ sequenceDiagram
 
 ## 4. Void & Reversal Operational Controls
 
-1. **Anti-Hard Delete Policy:** ShopFlow prohibits hard deletion of confirmed sales or financial transactions.
+1. **Anti-Hard Delete Policy:** Lwal Kuu prohibits hard deletion of confirmed sales or financial transactions.
 2. **Reversal Audit Requirements:** Every voided invoice requires an explicit explanation reason (`void_reason`) logged in `audit_logs` along with the acting user's ID and timestamp.
 3. **Inventory Rebalancing:** When a sale is reversed, compensatory positive movements (`sale_reversal`) are automatically posted to the immutable ledger to restore physical stock accuracy.
 

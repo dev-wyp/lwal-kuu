@@ -17,7 +17,7 @@ serve(async (req) => {
 
     const organizationId = body.organization_id as string;
     if (!organizationId) {
-      return jsonResponse({ error: "Select an active marketing workspace in the ShopFlow superadmin dashboard and try again." }, 400);
+      return jsonResponse({ error: "Select an active marketing workspace in the Lwal Kuu superadmin dashboard and try again." }, 400);
     }
 
     const { data: workspace } = await admin

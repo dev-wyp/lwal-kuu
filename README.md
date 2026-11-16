@@ -1,6 +1,6 @@
-# ShopFlow — Wholesale & Small Shop Management SaaS
+# Lwal Kuu — Wholesale & Small Shop Management SaaS
 
-ShopFlow is a production-ready, multi-tenant Software-as-a-Service (SaaS) platform built for wholesale distributors and retail shop owners. Initially optimized for Myanmar small businesses (with native Myanmar Kyat `MMK`, `Asia/Yangon` business timezone, and local mobile money workflows), its modular architecture easily expands internationally.
+Lwal Kuu is a production-ready, multi-tenant Software-as-a-Service (SaaS) platform built for wholesale distributors and retail shop owners. Initially optimized for Myanmar small businesses (with native Myanmar Kyat `MMK`, `Asia/Yangon` business timezone, and local mobile money workflows), its modular architecture easily expands internationally.
 
 ---
 
@@ -31,7 +31,7 @@ ShopFlow is a production-ready, multi-tenant Software-as-a-Service (SaaS) platfo
 
 ```bash
 # Clone the repository
-cd wholesale-erp
+cd lwal-kuu
 
 # Install dependencies
 npm install
@@ -73,7 +73,7 @@ Visit [http://localhost:3000](http://localhost:3000) in your browser.
 ## Project Structure
 
 ```
-wholesale-erp/
+lwal-kuu/
 ├── docs/                               # System architecture & documentation
 │   ├── architecture/
 │   │   ├── 01-project-architecture.md

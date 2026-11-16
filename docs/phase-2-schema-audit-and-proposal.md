@@ -4,7 +4,7 @@
 
 ## Audit result
 
-The `wholesale-erp` repository has no `supabase/` directory, migration SQL, Prisma schema, generated Supabase `Database` type, database tests, or database documentation describing Phase 1. Its only Supabase directory is `lib/supabase/`, containing client/session setup. Git contains one initial commit and no hidden branches or earlier schema/migration paths. The workspace contains SQL/Prisma migrations for other, separate applications, but none identifies itself as the wholesale ERP's Supabase schema; reusing one would be unsafe.
+The `lwal-kuu` repository has no `supabase/` directory, migration SQL, Prisma schema, generated Supabase `Database` type, database tests, or database documentation describing Phase 1. Its only Supabase directory is `lib/supabase/`, containing client/session setup. Git contains one initial commit and no hidden branches or earlier schema/migration paths. The workspace contains SQL/Prisma migrations for other, separate applications, but none identifies itself as the wholesale ERP's Supabase schema; reusing one would be unsafe.
 
 The existing, untracked `app/sales/page.tsx` is the only concrete Phase 1 database contract found in this project. It queries:
 

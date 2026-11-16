@@ -1,4 +1,4 @@
-# ShopFlow — Database Migration Plan
+# Lwal Kuu — Database Migration Plan
 
 ## 1. Migration Strategy & Ordering
 

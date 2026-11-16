@@ -1,8 +1,8 @@
-# ShopFlow — Production Deployment Guide
+# Lwal Kuu — Production Deployment Guide
 
 ## 1. Prerequisites & Infrastructure Requirements
 
-ShopFlow is architected as a modular monolith frontend (SPA on Vite + React + MUI) communicating with a managed Supabase backend (PostgreSQL 15+, Auth, Storage, Edge Functions).
+Lwal Kuu is architected as a modular monolith frontend (SPA on Vite + React + MUI) communicating with a managed Supabase backend (PostgreSQL 15+, Auth, Storage, Edge Functions).
 
 ### Recommended Hosting:
 - **Frontend SPA:** Cloudflare Pages, Vercel, or Netlify with automatic HTTPS and edge CDN caching.
@@ -76,7 +76,7 @@ npm run build
 
 ### GitHub Actions CI/CD Configuration (`.github/workflows/ci.yml`):
 ```yaml
-name: ShopFlow CI/CD
+name: Lwal Kuu CI/CD
 on:
   push:
     branches: [main]

@@ -1,6 +1,6 @@
-# ShopFlow — Customer Onboarding Guide
+# Lwal Kuu — Customer Onboarding Guide
 
-Welcome to **ShopFlow**! This guide assists shop owners, wholesale distributors, and staff members in getting started with ShopFlow in under 5 minutes.
+Welcome to **Lwal Kuu**! This guide assists shop owners, wholesale distributors, and staff members in getting started with Lwal Kuu in under 5 minutes.
 
 ---
 
@@ -15,7 +15,7 @@ Welcome to **ShopFlow**! This guide assists shop owners, wholesale distributors,
 1. Provide your **Shop Name** (e.g. *Shwe Thiri Wholesale Store*).
 2. A unique URL slug is generated automatically.
 3. Your default currency is configured to **Myanmar Kyat (MMK)** and timezone to **Asia/Yangon**.
-4. Click **Launch ShopFlow**. Your **14-day free trial** is immediately activated!
+4. Click **Launch Lwal Kuu**. Your **14-day free trial** is immediately activated!
 
 ### Step 3: Add Your Inventory & Products
 1. Navigate to **Products** in the sidebar.

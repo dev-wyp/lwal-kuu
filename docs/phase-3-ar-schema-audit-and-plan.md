@@ -6,7 +6,7 @@
 
 ### Repository and database evidence
 
-The `wholesale-erp` repository has no SQL migration files, `supabase/migrations` directory, Prisma schema, generated Supabase `Database` types, database integration tests, or schema documentation. `lib/supabase/` contains only browser/server/proxy client setup. Git history has one initial starter-template commit and no other branches containing migrations. Other workspace projects have their own SQL/Prisma files; none is established as this ERP's database schema and none was reused.
+The `lwal-kuu` repository has no SQL migration files, `supabase/migrations` directory, Prisma schema, generated Supabase `Database` types, database integration tests, or schema documentation. `lib/supabase/` contains only browser/server/proxy client setup. Git history has one initial starter-template commit and no other branches containing migrations. Other workspace projects have their own SQL/Prisma files; none is established as this ERP's database schema and none was reused.
 
 This audit inspected the repository structure, `package.json`, README, `.env.example` variable names, sales page, protected layout, Supabase client/server/proxy, Phase 2 planning document, and the existing supplier form. Secret environment values were not inspected or included.
 

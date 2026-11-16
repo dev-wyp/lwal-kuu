@@ -51,7 +51,7 @@ export const AppLayout: React.FC = () => {
       >
         <AddBusinessIcon sx={{ fontSize: 64, color: '#0284c7', mb: 2 }} />
         <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
-          {t("Welcome to ShopFlow!")}</Typography>
+          {t("Welcome to Lwal Kuu!")}</Typography>
         <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 480, mb: 3 }}>
           You don&apos;t have an active shop or organization yet. Create your organization in 30 seconds and start your 14-day free trial.
         </Typography>

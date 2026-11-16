@@ -160,7 +160,7 @@ export const DashboardPage: React.FC = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <CheckCircleOutlineIcon sx={{ color: '#0284c7', fontSize: 24 }} />
             <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a' }}>
-              {t("Welcome to ShopFlow! Quick Setup Checklist")}</Typography>
+              {t("Welcome to Lwal Kuu! Quick Setup Checklist")}</Typography>
             <Chip label={t("Guided Onboarding")} size="small" sx={{ bgcolor: '#e0f2fe', color: '#0369a1', fontWeight: 700, height: 20, fontSize: 10 }} />
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>

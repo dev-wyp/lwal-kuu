@@ -1,5 +1,5 @@
 export const SHOPFLOW_BRAND_CONTEXT = `
-ShopFlow is a Myanmar-focused wholesale and retail shop management SaaS.
+Lwal Kuu is a Myanmar-focused wholesale and retail shop management SaaS.
 
 Verified product capabilities (do not invent others):
 - Fast POS and sales invoicing: cash sales, credit invoices, partial deposits, sequential invoice numbers, receipts.

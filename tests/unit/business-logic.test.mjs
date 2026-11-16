@@ -1,4 +1,4 @@
-// Unit tests for ShopFlow Core Business Calculations
+// Unit tests for Lwal Kuu Core Business Calculations
 // Validates: Weighted Average Costing, FIFO Payment Allocation, and Ledger Math
 
 function calculateWeightedAverageCost(
@@ -47,7 +47,7 @@ function assert(condition, message) {
   console.log(`[PASS] ${message}`);
 }
 
-console.log('--- Running ShopFlow Business Logic Tests ---');
+console.log('--- Running Lwal Kuu Business Logic Tests ---');
 
 // Test 1: Initial Purchase Weighted Average Cost
 const cost1 = calculateWeightedAverageCost(0, 0, 10, 80000);

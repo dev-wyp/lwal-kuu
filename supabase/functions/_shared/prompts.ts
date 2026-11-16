@@ -1,4 +1,4 @@
-export const SHOPFLOW_GROUNDING = `ShopFlow is a Myanmar-focused wholesale and retail shop management SaaS.
+export const SHOPFLOW_GROUNDING = `Lwal Kuu is a Myanmar-focused wholesale and retail shop management SaaS.
 
 Verified features only: POS and invoicing (cash, credit, partial deposits), sequential invoices and receipts, immutable stock ledger with weighted-average costing, customer credit statements and payment allocation, supplier purchasing and goods receipts, expenses, low-stock warnings, financial reports in MMK, multi-tenant RLS, owner/admin/manager/staff roles, Asia/Yangon timezone, KBZPay/WavePay references, 14-day free trial without a credit card.
 
@@ -9,7 +9,7 @@ Primary goal: free trial registrations. Secondary: brand awareness.`;
 export const PROMPTS = {
   burmese_copy: `${SHOPFLOW_GROUNDING}
 
-Write Burmese marketing copy for ShopFlow. Return JSON with title, caption, hook, cta, hashtags (array), image_prompt, production_brief.`,
+Write Burmese marketing copy for Lwal Kuu. Return JSON with title, caption, hook, cta, hashtags (array), image_prompt, production_brief.`,
   facebook: `${SHOPFLOW_GROUNDING}
 
 Write Facebook content (educational, feature, promotional, carousel concept, or Reels script). Return JSON with title, caption, hook, cta, hashtags, image_prompt, production_brief.`,

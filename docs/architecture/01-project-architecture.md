@@ -1,8 +1,8 @@
-# ShopFlow — Project Architecture Document
+# Lwal Kuu — Project Architecture Document
 
 ## 1. Executive Summary
 
-**ShopFlow** is a production-ready, multi-tenant Software-as-a-Service (SaaS) platform built for wholesale and small shop management. While initially tailored for Myanmar businesses (with native Myanmar Kyat `MMK` accounting, `Asia/Yangon` timezone conventions, bilingual and local payment workflows), its underlying foundation is internationally extensible.
+**Lwal Kuu** is a production-ready, multi-tenant Software-as-a-Service (SaaS) platform built for wholesale and small shop management. While initially tailored for Myanmar businesses (with native Myanmar Kyat `MMK` accounting, `Asia/Yangon` timezone conventions, bilingual and local payment workflows), its underlying foundation is internationally extensible.
 
 The system is architected as a **modular monolith** with strict data isolation, server-side transactional guarantees, and self-service SaaS subscription lifecycles.
 
@@ -106,7 +106,7 @@ graph TD
 4. **Idempotency Keys:** Every critical financial operation (sale confirmation, payment receipt, stock adjustment) accepts a unique client-generated UUID `idempotency_key` to avoid double-posting on network retries.
 
 ### 4.2 Role-Based Access Control (RBAC)
-ShopFlow supports 4 roles within an organization:
+Lwal Kuu supports 4 roles within an organization:
 
 | Capability / Resource | Owner | Admin | Manager | Staff |
 | :--- | :---: | :---: | :---: | :---: |
@@ -128,7 +128,7 @@ Platform-wide super-admins are flagged in `profiles.is_platform_admin = true` an
 The codebase is organized as follows:
 
 ```
-wholesale-erp/
+lwal-kuu/
 ├── docs/                               # Comprehensive architecture & guides
 │   └── architecture/                   # ERD, workflows, migration plans, checklists
 ├── supabase/

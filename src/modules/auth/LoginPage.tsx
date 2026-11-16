@@ -73,7 +73,7 @@ export const LoginPage: React.FC = () => {
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
       <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5, color: '#0f172a' }}>
-        {t('Sign In to ShopFlow')}
+        {t('Sign In to Lwal Kuu')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         {t('Access your wholesale shop, sales register, and inventory ledger.')}

@@ -80,7 +80,7 @@ export const AdminLoginPage: React.FC = () => {
       if (profileError || !profileData?.is_platform_admin) {
         // Sign out immediately if not authorized as platform admin
         await supabase.auth.signOut();
-        setErrorMsg('Access Denied: This portal is strictly restricted to ShopFlow Platform Super-Administrators.');
+        setErrorMsg('Access Denied: This portal is strictly restricted to Lwal Kuu Platform Super-Administrators.');
         return;
       }
 
@@ -124,7 +124,7 @@ export const AdminLoginPage: React.FC = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <AdminPanelSettingsIcon sx={{ fontSize: 32, color: '#ef4444' }} />
             <Typography variant="h6" sx={{ fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
-              ShopFlow
+              Lwal Kuu
             </Typography>
           </Box>
           <Chip
@@ -251,7 +251,7 @@ export const AdminLoginPage: React.FC = () => {
       </Paper>
 
       <Typography variant="caption" sx={{ mt: 3, color: '#475569', textAlign: 'center' }}>
-        Protected by Role-Based Security &bull; ShopFlow Cloud Infrastructure
+        Protected by Role-Based Security &bull; Lwal Kuu Cloud Infrastructure
       </Typography>
     </Box>
   );

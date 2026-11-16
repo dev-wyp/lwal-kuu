@@ -2254,7 +2254,7 @@ begin
         v_org.id,
         'daily_summary',
         v_owner_email,
-        'ShopFlow: Daily Sales Report - ' || v_org.name,
+        'Lwal Kuu: Daily Sales Report - ' || v_org.name,
         jsonb_build_object(
           'invoices_count', v_summary.total_sales,
           'revenue', v_summary.revenue,

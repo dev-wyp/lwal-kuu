@@ -53,7 +53,7 @@ const adminNavItems: AdminNavItem[] = [
   { title: 'Usage Analytics', path: '/admin/analytics', icon: <AssessmentIcon fontSize="small" /> },
   { title: 'Platform Audit Logs', path: '/admin/audit-logs', icon: <ReceiptLongIcon fontSize="small" /> },
   { title: 'Automations & Crons', path: '/admin/automations', icon: <AutoAwesomeIcon fontSize="small" /> },
-  { title: 'ShopFlow Marketing', path: '/admin/marketing', icon: <CampaignIcon fontSize="small" /> },
+  { title: 'Lwal Kuu Marketing', path: '/admin/marketing', icon: <CampaignIcon fontSize="small" /> },
 ];
 
 export const AdminLayout: React.FC = () => {
@@ -207,7 +207,7 @@ export const AdminLayout: React.FC = () => {
         >
           {t("Switch to Shop View")}</Button>
         <Typography variant="caption" sx={{ display: 'block', color: '#475569', mt: 1.5, fontSize: 11, textAlign: 'center' }}>
-          ShopFlow Platform Engine v1.0
+          Lwal Kuu Platform Engine v1.0
         </Typography>
       </Box>
     </Box>
@@ -239,7 +239,7 @@ export const AdminLayout: React.FC = () => {
               <AdminPanelSettingsIcon sx={{ color: '#ef4444', fontSize: 30 }} />
               <div>
                 <Typography variant="h6" sx={{ fontWeight: 800, color: '#ffffff', lineHeight: 1.2 }}>
-                  {t("ShopFlow Master Admin")}</Typography>
+                  {t("Lwal Kuu Master Admin")}</Typography>
                 <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: 11 }}>
                   {t("Cross-Tenant Cloud Governance")}</Typography>
               </div>

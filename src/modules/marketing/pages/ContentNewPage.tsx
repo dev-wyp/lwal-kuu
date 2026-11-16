@@ -101,7 +101,7 @@ export const ContentNewPage: React.FC = () => {
       caption: '',
       hook: '',
       cta: workspaceData?.settings?.default_cta || 'Start 14-day free trial',
-      hashtags: '#ShopFlow #MyanmarBusiness',
+      hashtags: '#LwalKuu #MyanmarBusiness',
       image_prompt: '',
       production_brief: '',
     },

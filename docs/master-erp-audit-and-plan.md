@@ -5,7 +5,7 @@
 
 ## Executive summary
 
-The checked-out `wholesale-erp` repository is an early Next.js/Supabase starter with authentication pages, a single untracked sales page, and prior planning-only Phase 2/Phase 3 documents. It does not contain the database migrations, schema, generated database types, or tests needed to verify that the stated Phase 1 or Phase 2 ERP foundations exist. There is no complete, data-backed ERP implementation in this checkout.
+The checked-out `lwal-kuu` repository is an early Next.js/Supabase starter with authentication pages, a single untracked sales page, and prior planning-only Phase 2/Phase 3 documents. It does not contain the database migrations, schema, generated database types, or tests needed to verify that the stated Phase 1 or Phase 2 ERP foundations exist. There is no complete, data-backed ERP implementation in this checkout.
 
 The supplied master prompt available in this conversation ends partway through the Products section at “Product detail page”; the rest of its module requirements and acceptance criteria are not present. I can plan for the visible dashboard/products scope and the requirements already supplied in the Phase 2/3 prompts, but cannot responsibly claim the complete master requirements are known.
 
@@ -31,7 +31,7 @@ The supplied master prompt available in this conversation ends partway through t
 
 ### Database/security gaps
 
-No SQL migrations or schema files, `supabase/migrations`, Prisma schema, generated Supabase `Database` types, SQL function/RPC definitions, RLS policy definitions, database tests, or schema dump are present in `wholesale-erp` or its available Git history. No Supabase CLI/database-inspection connection is configured in the workspace; only public client configuration is present. Thus the following are not verified:
+No SQL migrations or schema files, `supabase/migrations`, Prisma schema, generated Supabase `Database` types, SQL function/RPC definitions, RLS policy definitions, database tests, or schema dump are present in `lwal-kuu` or its available Git history. No Supabase CLI/database-inspection connection is configured in the workspace; only public client configuration is present. Thus the following are not verified:
 
 - organizations, memberships, customers, products, sales invoices/items, stock movements/balances, supplier/purchase/receipt/payment tables;
 - payment/ledger/journal/returns structures or business number generators;

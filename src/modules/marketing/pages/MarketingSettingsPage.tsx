@@ -56,7 +56,7 @@ export const MarketingSettingsPage: React.FC = () => {
 
   const form = useForm<FormValues>({
     values: {
-      brand_name: workspace?.brand_name || 'ShopFlow',
+      brand_name: workspace?.brand_name || 'Lwal Kuu',
       market: workspace?.market || 'Myanmar',
       primary_language: workspace?.primary_language || 'Burmese',
       secondary_language: workspace?.secondary_language || 'English',

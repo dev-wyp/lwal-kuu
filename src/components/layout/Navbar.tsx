@@ -82,7 +82,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
           >
             <StorefrontIcon sx={{ color: '#0284c7', fontSize: 28 }} />
             <Typography variant="h6" sx={{ fontWeight: 700, color: '#0f172a' }}>
-              ShopFlow
+              Lwal Kuu
             </Typography>
             <Chip
               label="SaaS"
@@ -163,7 +163,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
           >
             <Box sx={{ px: 2, py: 1.5 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                {profile?.full_name || t('ShopFlow User')}
+                {profile?.full_name || t('Lwal Kuu User')}
               </Typography>
               <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
                 {user?.email}

@@ -145,7 +145,7 @@ export const OverviewPage: React.FC = () => {
 
       <Grid container spacing={2}>
         <Grid item xs={6} md={3} lg={2}>
-          <KpiCard title="Published posts" value={String(published.length)} source="platform" helper="From ShopFlow records" />
+          <KpiCard title="Published posts" value={String(published.length)} source="platform" helper="From Lwal Kuu records" />
         </Grid>
         <Grid item xs={6} md={3} lg={2}>
           <KpiCard title="Pending approvals" value={String(pending.length)} source="platform" />
@@ -203,7 +203,7 @@ export const OverviewPage: React.FC = () => {
                 ))}
               </Stack>
               <Typography variant="caption" color="text.secondary">
-                Counts ShopFlow publish records, not estimated reach.
+                Counts Lwal Kuu publish records, not estimated reach.
               </Typography>
             </CardContent>
           </Card>

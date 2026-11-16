@@ -134,7 +134,7 @@ export const CampaignsPage: React.FC = () => {
         caption: idea.caption_concept || idea.topic,
         hook: idea.hook,
         cta: idea.cta || workspaceData.settings?.default_cta || 'Start 14-day free trial',
-        hashtags: ['#ShopFlow', '#MyanmarBusiness'],
+        hashtags: ['#LwalKuu', '#MyanmarBusiness'],
         status: 'draft',
         created_by: user.id,
       })

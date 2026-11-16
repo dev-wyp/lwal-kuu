@@ -7,7 +7,7 @@ export function buildTrialTrackingUrl(
   const url = new URL('/register', origin);
   url.searchParams.set('utm_source', content.platform);
   url.searchParams.set('utm_medium', 'social');
-  url.searchParams.set('utm_campaign', content.campaign_id || 'shopflow-trial');
+  url.searchParams.set('utm_campaign', content.campaign_id || 'lwal-kuu-trial');
   url.searchParams.set('utm_content', content.id);
   url.searchParams.set('plan', 'starter');
   return url.toString();
@@ -22,7 +22,7 @@ export function buildManualPublishBrief(content: MarketingContent, trackingUrl: 
     .join('\n\n');
 
   return [
-    'ShopFlow manual publishing brief',
+    'Lwal Kuu manual publishing brief',
     `Timezone: Asia/Yangon`,
     `Status: ${content.status} (do not post unless approved or scheduled)`,
     `Platform: ${content.platform}`,
@@ -51,7 +51,7 @@ export function buildManualPublishBrief(content: MarketingContent, trackingUrl: 
     content.video_script ? `Opening hook: ${content.video_script.opening_hook}` : '',
     scenes || '',
     '',
-    'Instructions: Post only after owner approval. Do not invent testimonials, stats, or unlisted ShopFlow features.',
+    'Instructions: Post only after owner approval. Do not invent testimonials, stats, or unlisted Lwal Kuu features.',
   ]
     .filter((line) => line !== '')
     .join('\n');

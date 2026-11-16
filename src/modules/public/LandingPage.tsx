@@ -43,7 +43,7 @@ export const LandingPage: React.FC = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }} onClick={() => navigate('/')}>
               <StorefrontIcon sx={{ color: '#0284c7', fontSize: 32 }} />
               <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
-                ShopFlow
+                Lwal Kuu
               </Typography>
             </Box>
 
@@ -90,7 +90,7 @@ export const LandingPage: React.FC = () => {
           >
             {t("Manage Products, Sales & Credit Ledgers with Zero Friction.")}</Typography>
           <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 400, mb: 4, lineHeight: 1.6 }}>
-            ShopFlow is a modern multi-tenant cloud SaaS for wholesale distributors and retail shop owners.
+            Lwal Kuu is a modern multi-tenant cloud SaaS for wholesale distributors and retail shop owners.
             Complete with inventory ledgers, credit tracking, cash/partial payments, and daily business analytics in MMK.
           </Typography>
 

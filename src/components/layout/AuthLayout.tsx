@@ -33,7 +33,7 @@ export const AuthLayout: React.FC = () => {
       >
         <StorefrontIcon sx={{ fontSize: 36, color: '#0284c7' }} />
         <Typography variant="h4" sx={{ fontWeight: 800, color: '#0f172a', letterSpacing: '-0.03em' }}>
-          ShopFlow
+          Lwal Kuu
         </Typography>
       </Box>
 
@@ -53,7 +53,7 @@ export const AuthLayout: React.FC = () => {
       </Paper>
 
       <Typography variant="body2" color="text.secondary" sx={{ mt: 3, textAlign: 'center' }}>
-        &copy; {new Date().getFullYear()} ShopFlow Cloud SaaS. {t('All rights reserved.')}
+        &copy; {new Date().getFullYear()} Lwal Kuu Cloud SaaS. {t('All rights reserved.')}
       </Typography>
     </Box>
   );

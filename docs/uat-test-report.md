@@ -1,6 +1,6 @@
-# ShopFlow UAT Test Report
+# Lwal Kuu UAT Test Report
 
-**Project:** ShopFlow — Wholesale & Small Shop Management SaaS  
+**Project:** Lwal Kuu — Wholesale & Small Shop Management SaaS  
 **Version:** 1.0.0-MVP  
 **Report Date:** 2026-11-10  
 **Environment:** Local Development (Vite + React + MUI + Supabase)  
@@ -104,7 +104,7 @@
 
 **Steps:**
 1. Navigate to `/login`
-2. Assert "Sign In to ShopFlow" is visible
+2. Assert "Sign In to Lwal Kuu" is visible
 3. Click submit with empty form
 4. Assert Zod validation message: "Please enter a valid email address"
 5. Click "Start free trial" link

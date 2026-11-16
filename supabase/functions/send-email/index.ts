@@ -49,7 +49,7 @@ serve(async (req) => {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "ShopFlow Notifications <notifications@shopflow.app>",
+        from: "Lwal Kuu Notifications <notifications@shopflow.app>",
         to: [payload.to],
         subject: payload.subject,
         html: payload.html,

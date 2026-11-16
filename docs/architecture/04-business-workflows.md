@@ -1,4 +1,4 @@
-# ShopFlow — Business Workflow Documentation
+# Lwal Kuu — Business Workflow Documentation
 
 ## 1. Confirm Sale Workflow
 
@@ -8,7 +8,7 @@ The **Confirm Sale** workflow transitions a draft order into a legally binding i
 sequenceDiagram
     autonumber
     actor Staff as Cashier / Sales Staff
-    participant UI as ShopFlow Sales UI
+    participant UI as Lwal Kuu Sales UI
     participant RPC as confirm_sale() RPC
     participant DB_Stock as stock_movements
     participant DB_Sales as sales & sale_items

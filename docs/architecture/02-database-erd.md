@@ -1,4 +1,4 @@
-# ShopFlow — Database Entity-Relationship Diagram & Schema Specification
+# Lwal Kuu — Database Entity-Relationship Diagram & Schema Specification
 
 ## 1. Relational Entity Diagram
 

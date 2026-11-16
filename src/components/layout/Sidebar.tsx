@@ -171,7 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, isMobile }) => 
 
       <Box sx={{ mt: 'auto', px: 2, py: 1.5, borderTop: '1px solid #f1f5f9' }}>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-          ShopFlow Cloud v1.0
+          Lwal Kuu Cloud v1.0
         </Typography>
         <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: 11 }}>
           {t('Myanmar & Southeast Asia')}

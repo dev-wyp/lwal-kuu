@@ -36,7 +36,7 @@ export const PricingPage: React.FC = () => {
       <Box sx={{ textAlign: 'center', mb: 6 }}>
         <Chip label={t('Simple, predictable pricing')} sx={{ mb: 2, bgcolor: '#e0f2fe', color: '#0369a1', fontWeight: 600 }} />
         <Typography variant="h3" sx={{ fontWeight: 800, mb: 2 }}>{t('Plans for Myanmar Businesses')}</Typography>
-        <Typography color="text.secondary">{t('Plan features and limits are managed from ShopFlow administration.')}</Typography>
+        <Typography color="text.secondary">{t('Plan features and limits are managed from Lwal Kuu administration.')}</Typography>
         <ToggleButtonGroup value={cycle} exclusive onChange={(_, value: 'monthly' | 'yearly' | null) => value && setCycle(value)} sx={{ mt: 3, bgcolor: 'white' }}>
           <ToggleButton value="monthly">{t('Monthly')}</ToggleButton><ToggleButton value="yearly">{t('Yearly')}</ToggleButton>
         </ToggleButtonGroup>

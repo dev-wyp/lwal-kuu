@@ -134,7 +134,7 @@ export const ProductsPage: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'shopflow_product_import_template.csv');
+    link.setAttribute('download', 'lwal_kuu_product_import_template.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

@@ -147,7 +147,7 @@ export const AiSettingsPage: React.FC = () => {
     <Box>
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>Your AI provider</Typography>
       <Alert severity="info" sx={{ mb: 2 }}>
-        Add your own Gemini or OpenAI API key. ShopFlow sends it only to the protected Edge Function and stores it encrypted; the key is never returned to the browser. AI runs only when you request content or analysis. Posts still require manual approval.
+        Add your own Gemini or OpenAI API key. Lwal Kuu sends it only to the protected Edge Function and stores it encrypted; the key is never returned to the browser. AI runs only when you request content or analysis. Posts still require manual approval.
       </Alert>
       <Stack spacing={2} maxWidth={620}>
         <TextField label="Brand tone" {...form.register('brand_tone')} disabled={!isOwnerOrAdmin || busy !== null} />

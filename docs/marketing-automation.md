@@ -1,6 +1,6 @@
-# ShopFlow Marketing Automation
+# Lwal Kuu Marketing Automation
 
-AI-assisted Facebook and TikTok marketing for ShopFlow, available only in the platform superadmin dashboard. Platform superadmins review and approve every post. The system never publishes unapproved content and never launches ads on its own.
+AI-assisted Facebook and TikTok marketing for Lwal Kuu, available only in the platform superadmin dashboard. Platform superadmins review and approve every post. The system never publishes unapproved content and never launches ads on its own.
 
 ## Apply schema
 
@@ -29,7 +29,7 @@ supabase functions deploy marketing-publish
 supabase functions deploy marketing-jobs
 ```
 
-`db push` applies every local migration not yet present on the linked project, in order. Review its pending migration list before confirming. Once deployed, verify the new `marketing_*` tables and RPCs exist, then reload the dashboard. Configure OAuth and cron secrets separately. Superadmins can add their own Gemini or OpenAI API key in **Admin → ShopFlow Marketing → AI settings**. Keys are encrypted by the `marketing-ai` Edge Function and are never readable from the browser. Stored-key encryption uses `MARKETING_TOKEN_SECRET` (or the service role key as a fallback); keep that secret stable. Edge Function provider keys remain supported as a fallback.
+`db push` applies every local migration not yet present on the linked project, in order. Review its pending migration list before confirming. Once deployed, verify the new `marketing_*` tables and RPCs exist, then reload the dashboard. Configure OAuth and cron secrets separately. Superadmins can add their own Gemini or OpenAI API key in **Admin → Lwal Kuu Marketing → AI settings**. Keys are encrypted by the `marketing-ai` Edge Function and are never readable from the browser. Stored-key encryption uses `MARKETING_TOKEN_SECRET` (or the service role key as a fallback); keep that secret stable. Edge Function provider keys remain supported as a fallback.
 
 ## Edge Functions
 

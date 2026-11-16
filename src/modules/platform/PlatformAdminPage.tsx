@@ -722,7 +722,7 @@ export const PlatformAdminPage: React.FC = () => {
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
                     {t("Tenant Distribution")}</Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {t("Proportion of active versus suspended organizations on ShopFlow.")}</Typography>
+                    {t("Proportion of active versus suspended organizations on Lwal Kuu.")}</Typography>
                   <Box sx={{ display: 'flex', gap: 3 }}>
                     <Box>
                       <Typography variant="h4" sx={{ fontWeight: 800, color: '#16a34a' }}>

@@ -138,7 +138,7 @@ export const AnalyticsPage: React.FC = () => {
       {error && <Alert severity="error">{error instanceof Error ? error.message : 'Analytics failed'}</Alert>}
       {data.length === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          No platform analytics have been stored. ShopFlow will not display fabricated reach or views as actual results.
+          No platform analytics have been stored. Lwal Kuu will not display fabricated reach or views as actual results.
         </Alert>
       )}
 
