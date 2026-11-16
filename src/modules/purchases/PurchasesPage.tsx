@@ -29,8 +29,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useOrg } from '@/context/OrgContext';
 import { useNotification } from '@/context/NotificationContext';
+import { useI18n } from '@/i18n/I18nContext';
 
 export const PurchasesPage: React.FC = () => {
+  const { t } = useI18n();
   const { currentOrg, formatCurrency } = useOrg();
   const { showSuccess, showError } = useNotification();
   const queryClient = useQueryClient();
@@ -229,11 +231,9 @@ export const PurchasesPage: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
-            Purchase Orders & Receiving
-          </Typography>
+            {t("Purchase Orders & Receiving")}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Manage vendor shipments, stock receipt, and automated weighted average costing.
-          </Typography>
+            {t("Manage vendor shipments, stock receipt, and automated weighted average costing.")}</Typography>
         </div>
         <Button
           variant="contained"
@@ -245,8 +245,7 @@ export const PurchasesPage: React.FC = () => {
           }}
           sx={{ borderRadius: 2, bgcolor: '#0f172a', fontWeight: 600 }}
         >
-          New Purchase Order
-        </Button>
+          {t("New Purchase Order")}</Button>
       </Box>
 
       {/* Table */}
@@ -255,12 +254,12 @@ export const PurchasesPage: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>PO Number</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell>Supplier</TableCell>
-                <TableCell align="right">Total Amount</TableCell>
-                <TableCell align="right">Paid Upfront</TableCell>
-                <TableCell align="center">Status</TableCell>
+                <TableCell>{t("PO Number")}</TableCell>
+                <TableCell>{t("Date")}</TableCell>
+                <TableCell>{t("Supplier")}</TableCell>
+                <TableCell align="right">{t("Total Amount")}</TableCell>
+                <TableCell align="right">{t("Paid Upfront")}</TableCell>
+                <TableCell align="center">{t("Status")}</TableCell>
                 <TableCell align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -299,8 +298,7 @@ export const PurchasesPage: React.FC = () => {
                           onClick={() => handleOpenReceive(po)}
                           sx={{ borderRadius: 2, py: 0.4, fontSize: 12, fontWeight: 600 }}
                         >
-                          Receive Goods
-                        </Button>
+                          {t("Receive Goods")}</Button>
                       )}
                     </TableCell>
                   </TableRow>
@@ -319,7 +317,7 @@ export const PurchasesPage: React.FC = () => {
 
       {/* New Purchase Modal */}
       <Dialog open={createModalOpen} onClose={() => setCreateModalOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>New Purchase Order</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>{t("New Purchase Order")}</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={12} sm={6}>
@@ -327,7 +325,7 @@ export const PurchasesPage: React.FC = () => {
                 fullWidth
                 size="small"
                 select
-                label="Supplier"
+                label={t("Supplier")}
                 value={supplierId}
                 onChange={(e) => setSupplierId(e.target.value)}
               >
@@ -343,7 +341,7 @@ export const PurchasesPage: React.FC = () => {
                 fullWidth
                 size="small"
                 type="date"
-                label="Order Date"
+                label={t("Order Date")}
                 value={purchaseDate}
                 onChange={(e) => setPurchaseDate(e.target.value)}
                 InputLabelProps={{ shrink: true }}
@@ -352,8 +350,7 @@ export const PurchasesPage: React.FC = () => {
           </Grid>
 
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-            Line Items:
-          </Typography>
+            {t("Line Items:")}</Typography>
 
           {items.map((item, idx) => (
             <Grid container spacing={1.5} key={idx} sx={{ mb: 1.5 }} alignItems="center">
@@ -362,7 +359,7 @@ export const PurchasesPage: React.FC = () => {
                   fullWidth
                   size="small"
                   select
-                  label="Select Product"
+                  label={t("Select Product")}
                   value={item.productId}
                   onChange={(e) => handleItemProductChange(idx, e.target.value)}
                 >
@@ -378,7 +375,7 @@ export const PurchasesPage: React.FC = () => {
                   fullWidth
                   size="small"
                   type="number"
-                  label="Quantity"
+                  label={t("Quantity")}
                   value={item.quantity}
                   onChange={(e) => handleItemChange(idx, 'quantity', Number(e.target.value))}
                 />
@@ -402,14 +399,12 @@ export const PurchasesPage: React.FC = () => {
           ))}
 
           <Button size="small" onClick={handleAddItem} sx={{ mt: 1 }}>
-            + Add Another Item
-          </Button>
+            {t("+ Add Another Item")}</Button>
 
           <Divider sx={{ my: 2 }} />
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'baseline', gap: 1 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-              Total Order Cost:
-            </Typography>
+              {t("Total Order Cost:")}</Typography>
             <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a' }}>
               {formatCurrency(calculateTotal())}
             </Typography>
@@ -417,8 +412,7 @@ export const PurchasesPage: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setCreateModalOpen(false)} disabled={submitting}>
-            Cancel
-          </Button>
+            {t("Cancel")}</Button>
           <Button
             variant="contained"
             onClick={handleCreatePurchase}
@@ -433,18 +427,17 @@ export const PurchasesPage: React.FC = () => {
       {/* Receive Purchase Modal */}
       <Dialog open={receiveModalOpen} onClose={() => setReceiveModalOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>
-          Confirm Goods Receipt: {selectedPurchase?.purchase_number}
+          {t("Confirm Goods Receipt:") + " "}{selectedPurchase?.purchase_number}
         </DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Receiving this order will automatically increment inventory stock movements and recalculate weighted average costs.
-          </Typography>
+            {t("Receiving this order will automatically increment inventory stock movements and recalculate weighted average costs.")}</Typography>
 
           <TextField
             fullWidth
             size="small"
             type="number"
-            label="Upfront Cash/Payment Paid to Supplier (MMK)"
+            label={t("Upfront Cash/Payment Paid to Supplier (MMK)")}
             value={receivePaidAmount}
             onChange={(e) => setReceivePaidAmount(Number(e.target.value))}
             sx={{ mb: 2 }}
@@ -454,20 +447,19 @@ export const PurchasesPage: React.FC = () => {
             fullWidth
             size="small"
             select
-            label="Payment Method"
+            label={t("Payment Method")}
             value={receivePaymentMethod}
             onChange={(e) => setReceivePaymentMethod(e.target.value)}
           >
-            <MenuItem value="cash">Cash on Delivery</MenuItem>
-            <MenuItem value="bank_transfer">Bank Transfer (KBZ / CB / AYA)</MenuItem>
+            <MenuItem value="cash">{t("Cash on Delivery")}</MenuItem>
+            <MenuItem value="bank_transfer">{t("Bank Transfer (KBZ / CB / AYA)")}</MenuItem>
             <MenuItem value="kbz_pay">KBZPay</MenuItem>
             <MenuItem value="wave_pay">WavePay</MenuItem>
           </TextField>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setReceiveModalOpen(false)} disabled={receiving}>
-            Cancel
-          </Button>
+            {t("Cancel")}</Button>
           <Button
             variant="contained"
             color="success"

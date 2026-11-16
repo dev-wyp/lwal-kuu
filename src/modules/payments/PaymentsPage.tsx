@@ -26,8 +26,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useOrg } from '@/context/OrgContext';
 import { useNotification } from '@/context/NotificationContext';
+import { useI18n } from '@/i18n/I18nContext';
 
 export const PaymentsPage: React.FC = () => {
+  const { t } = useI18n();
   const { currentOrg, formatCurrency } = useOrg();
   const { showSuccess, showError } = useNotification();
   const queryClient = useQueryClient();
@@ -166,11 +168,9 @@ export const PaymentsPage: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
-            Customer Payments & Allocations
-          </Typography>
+            {t("Customer Payments & Allocations")}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Collect lump-sum or invoice-specific customer payments and clear accounts receivable.
-          </Typography>
+            {t("Collect lump-sum or invoice-specific customer payments and clear accounts receivable.")}</Typography>
         </div>
         <Button
           variant="contained"
@@ -183,8 +183,7 @@ export const PaymentsPage: React.FC = () => {
           }}
           sx={{ borderRadius: 2, bgcolor: '#0f172a', fontWeight: 600 }}
         >
-          Receive Payment
-        </Button>
+          {t("Receive Payment")}</Button>
       </Box>
 
       {/* Table */}
@@ -193,14 +192,14 @@ export const PaymentsPage: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Receipt #</TableCell>
-                <TableCell>Payment Date</TableCell>
-                <TableCell>Customer</TableCell>
-                <TableCell>Method</TableCell>
-                <TableCell align="right">Amount Collected</TableCell>
-                <TableCell align="right">Allocated</TableCell>
-                <TableCell>Reference</TableCell>
-                <TableCell align="center">Status</TableCell>
+                <TableCell>{t("Receipt #")}</TableCell>
+                <TableCell>{t("Payment Date")}</TableCell>
+                <TableCell>{t("Customer")}</TableCell>
+                <TableCell>{t("Method")}</TableCell>
+                <TableCell align="right">{t("Amount Collected")}</TableCell>
+                <TableCell align="right">{t("Allocated")}</TableCell>
+                <TableCell>{t("Reference")}</TableCell>
+                <TableCell align="center">{t("Status")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -248,7 +247,7 @@ export const PaymentsPage: React.FC = () => {
 
       {/* Receive Payment Modal */}
       <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Receive Customer Payment</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>{t("Receive Customer Payment")}</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={12} sm={6}>
@@ -256,7 +255,7 @@ export const PaymentsPage: React.FC = () => {
                 fullWidth
                 size="small"
                 select
-                label="Customer"
+                label={t("Customer")}
                 value={customerId}
                 onChange={(e) => setCustomerId(e.target.value)}
               >
@@ -272,7 +271,7 @@ export const PaymentsPage: React.FC = () => {
                 fullWidth
                 size="small"
                 type="number"
-                label="Payment Amount Received (MMK)"
+                label={t("Payment Amount Received (MMK)")}
                 value={paymentAmount}
                 onChange={(e) => setPaymentAmount(Number(e.target.value))}
               />
@@ -282,11 +281,11 @@ export const PaymentsPage: React.FC = () => {
                 fullWidth
                 size="small"
                 select
-                label="Payment Method"
+                label={t("Payment Method")}
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
               >
-                <MenuItem value="cash">Cash</MenuItem>
+                <MenuItem value="cash">{t("Cash")}</MenuItem>
                 <MenuItem value="kbz_pay">KBZPay</MenuItem>
                 <MenuItem value="wave_pay">WavePay</MenuItem>
                 <MenuItem value="bank_transfer">Bank Transfer (AYA/CB/KBZ)</MenuItem>
@@ -319,19 +318,17 @@ export const PaymentsPage: React.FC = () => {
           {/* Allocation Section */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              Allocate Payment Across Open Invoices:
-            </Typography>
+              {t("Allocate Payment Across Open Invoices:")}</Typography>
             <Button size="small" variant="outlined" onClick={handleAutoAllocate} disabled={paymentAmount <= 0}>
-              Auto-Allocate (FIFO)
-            </Button>
+              {t("Auto-Allocate (FIFO)")}</Button>
           </Box>
 
           <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e2e8f0', mb: 2 }}>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Invoice #</TableCell>
-                  <TableCell>Date</TableCell>
+                  <TableCell>{t("Invoice #")}</TableCell>
+                  <TableCell>{t("Date")}</TableCell>
                   <TableCell align="right">Invoice Total</TableCell>
                   <TableCell align="right">Already Paid</TableCell>
                   <TableCell align="right">Remaining Due</TableCell>
@@ -367,8 +364,7 @@ export const PaymentsPage: React.FC = () => {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
-                      No unpaid invoices found for this customer. Payment will be credited to customer account.
-                    </TableCell>
+                      {t("No unpaid invoices found for this customer. Payment will be credited to customer account.")}</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -377,8 +373,7 @@ export const PaymentsPage: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setModalOpen(false)} disabled={submitting}>
-            Cancel
-          </Button>
+            {t("Cancel")}</Button>
           <Button
             variant="contained"
             disabled={submitting || paymentAmount <= 0}

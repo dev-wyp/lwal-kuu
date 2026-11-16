@@ -7,6 +7,7 @@ import { router } from './routes';
 import { AuthProvider } from './context/AuthContext';
 import { OrgProvider } from './context/OrgContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { I18nProvider } from './i18n/I18nContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,13 +24,15 @@ export const App: React.FC = () => {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <NotificationProvider>
-          <AuthProvider>
-            <OrgProvider>
-              <RouterProvider router={router} />
-            </OrgProvider>
-          </AuthProvider>
-        </NotificationProvider>
+        <I18nProvider>
+          <NotificationProvider>
+            <AuthProvider>
+              <OrgProvider>
+                <RouterProvider router={router} />
+              </OrgProvider>
+            </AuthProvider>
+          </NotificationProvider>
+        </I18nProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

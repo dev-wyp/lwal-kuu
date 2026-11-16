@@ -35,5 +35,12 @@ test.describe('ShopFlow E2E Critical Path Suite', () => {
     await page.click('text=Yearly Billing');
     await expect(page.locator('text=150,000')).toBeVisible();
   });
+
+  test('4. Marketing routes require authentication', async ({ page }) => {
+    await page.goto('/marketing');
+    await expect(page).toHaveURL(/login/);
+    await page.goto('/marketing/approvals');
+    await expect(page).toHaveURL(/login/);
+  });
 });
 

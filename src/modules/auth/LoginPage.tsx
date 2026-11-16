@@ -18,6 +18,7 @@ import * as z from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useNotification } from '@/context/NotificationContext';
+import { useI18n } from '@/i18n/I18nContext';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -32,6 +33,7 @@ export const LoginPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const navigate = useNavigate();
   const { showSuccess } = useNotification();
+  const { t } = useI18n();
 
   const {
     register,
@@ -57,11 +59,11 @@ export const LoginPage: React.FC = () => {
       }
 
       if (authData.user) {
-        showSuccess('Welcome back!');
+        showSuccess(t('Welcome back!'));
         navigate('/app/dashboard');
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+      const message = err instanceof Error ? t(err.message) : t('An unexpected error occurred');
       setErrorMsg(message);
     } finally {
       setLoading(false);
@@ -71,10 +73,10 @@ export const LoginPage: React.FC = () => {
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
       <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5, color: '#0f172a' }}>
-        Sign In to ShopFlow
+        {t('Sign In to ShopFlow')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Access your wholesale shop, sales register, and inventory ledger.
+        {t('Access your wholesale shop, sales register, and inventory ledger.')}
       </Typography>
 
       {errorMsg && (
@@ -85,7 +87,7 @@ export const LoginPage: React.FC = () => {
 
       <TextField
         fullWidth
-        label="Email Address"
+        label={t('Email Address')}
         type="email"
         margin="normal"
         size="small"
@@ -93,24 +95,24 @@ export const LoginPage: React.FC = () => {
         autoFocus
         {...register('email')}
         error={Boolean(errors.email)}
-        helperText={errors.email?.message}
+        helperText={errors.email?.message ? t(errors.email.message) : undefined}
       />
 
       <TextField
         fullWidth
-        label="Password"
+        label={t('Password')}
         type={showPassword ? 'text' : 'password'}
         margin="normal"
         size="small"
         autoComplete="current-password"
         {...register('password')}
         error={Boolean(errors.password)}
-        helperText={errors.password?.message}
+        helperText={errors.password?.message ? t(errors.password.message) : undefined}
         InputProps={{
           endAdornment: (
             <InputAdornment position="end">
               <IconButton
-                aria-label="toggle password visibility"
+                aria-label={t('toggle password visibility')}
                 onClick={() => setShowPassword(!showPassword)}
                 edge="end"
                 size="small"
@@ -124,7 +126,7 @@ export const LoginPage: React.FC = () => {
 
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1, mb: 2 }}>
         <MuiLink component={Link} to="/forgot-password" variant="caption" sx={{ fontWeight: 600, color: '#0284c7' }}>
-          Forgot password?
+          {t('Forgot password?')}
         </MuiLink>
       </Box>
 
@@ -143,20 +145,20 @@ export const LoginPage: React.FC = () => {
           bgcolor: '#0f172a',
         }}
       >
-        {loading ? <CircularProgress size={24} sx={{ color: '#ffffff' }} /> : 'Sign In'}
+        {loading ? <CircularProgress size={24} sx={{ color: '#ffffff' }} /> : t('Sign In')}
       </Button>
 
       <Box sx={{ textAlign: 'center' }}>
         <Typography variant="body2" color="text.secondary">
-          Don&apos;t have an account yet?{' '}
+          {t('Don\'t have an account yet?')}{' '}
           <MuiLink component={Link} to="/register" sx={{ fontWeight: 600, color: '#0284c7' }}>
-            Start free trial
+            {t('Start Free Trial')}
           </MuiLink>
         </Typography>
 
         <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #f1f5f9' }}>
           <MuiLink component={Link} to="/admin/login" variant="caption" sx={{ color: '#94a3b8', textDecoration: 'none', '&:hover': { color: '#dc2626', textDecoration: 'underline' } }}>
-            Platform Administrator? Access Super-Admin Portal &rarr;
+            {t('Platform Administrator? Access Super-Admin Portal →')}
           </MuiLink>
         </Box>
       </Box>

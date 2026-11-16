@@ -1,216 +1,89 @@
 import React, { useState } from 'react';
-import {
-  Box,
-  Container,
-  Typography,
-  Button,
-  Grid,
-  Card,
-  CardContent,
-  Chip,
-  ToggleButtonGroup,
-  ToggleButton,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-} from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Container, Grid, List, ListItem, ListItemIcon, ListItemText, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
+import { LanguageSwitcher } from '@/i18n/LanguageSwitcher';
+import { useI18n } from '@/i18n/I18nContext';
+
+interface PriceFeature { is_enabled: boolean; features: { name: string; feature_type: string } | null }
+interface PriceLimit { limit_value: number; features: { name: string } | null }
+interface PricePlan {
+  id: string; name: string; slug: string; description: string | null; monthly_price_mmk: number; yearly_price_mmk: number;
+  currency: string; display_order: number; plan_features: PriceFeature[]; plan_feature_limits: PriceLimit[];
+}
 
 export const PricingPage: React.FC = () => {
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  const [cycle, setCycle] = useState<'monthly' | 'yearly'>('monthly');
   const navigate = useNavigate();
-
-  const handleCycleChange = (
-    _event: React.MouseEvent<HTMLElement>,
-    newCycle: 'monthly' | 'yearly' | null
-  ) => {
-    if (newCycle !== null) {
-      setBillingCycle(newCycle);
-    }
-  };
-
-  const plans = [
-    {
-      id: 'starter',
-      name: 'Starter Plan',
-      tagline: 'Ideal for small retail shops and single-location wholesale stalls.',
-      monthlyPrice: '15,000',
-      yearlyPrice: '150,000',
-      popular: false,
-      features: [
-        'Up to 2 Staff Users',
-        'Up to 200 Products',
-        'Up to 300 Sales Invoices / mo',
-        'POS & Sales Register',
-        'Stock Movements Ledger',
-        'Cash & Credit Invoicing',
-        'Daily Sales Summary',
-        'Standard Email Support',
-      ],
+  const { t } = useI18n();
+  const { data: plans = [], isLoading, isError } = useQuery({
+    queryKey: ['public_subscription_plans'],
+    queryFn: async (): Promise<PricePlan[]> => {
+      const { data, error } = await supabase.from('plans').select('*, plan_features(is_enabled, features(name,feature_type)), plan_feature_limits(limit_value, features(name))')
+        .eq('is_active', true).eq('is_public', true).order('display_order');
+      if (error) throw error;
+      return (data ?? []) as unknown as PricePlan[];
     },
-    {
-      id: 'business',
-      name: 'Business Plan',
-      tagline: 'Best for growing wholesale shops with high volume credit sales.',
-      monthlyPrice: '30,000',
-      yearlyPrice: '300,000',
-      popular: true,
-      features: [
-        'Up to 5 Staff Users',
-        'Up to 1,000 Products',
-        'Up to 1,500 Sales Invoices / mo',
-        'Customer Credit & Ledger Statements',
-        'Multi-Invoice Payment Allocations',
-        'Weighted Average Costing & Gross Profit',
-        'Supplier Orders & Receiving Workflow',
-        'Inventory Adjustments & Low Stock Alerts',
-        'Excel & PDF Report Exports',
-      ],
-    },
-    {
-      id: 'pro',
-      name: 'Pro Plan',
-      tagline: 'For large wholesale distributors managing multi-team operations.',
-      monthlyPrice: '60,000',
-      yearlyPrice: '600,000',
-      popular: false,
-      features: [
-        'Up to 15 Staff Users',
-        'Up to 5,000 Products',
-        'Up to 10,000 Sales Invoices / mo',
-        'All Business Plan Features Included',
-        'Multiple Organization Switching',
-        'Role-Based Granular Permissions',
-        'Audit Log Trail & Reversals',
-        'Priority Phone & Chat Support',
-        'Custom Invoice Templates & Footer',
-      ],
-    },
-  ];
+    staleTime: 60_000,
+  });
+  const number = (value: number) => value === -1 ? t('Unlimited') : value.toLocaleString();
 
-  return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', py: { xs: 6, md: 10 } }}>
-      <Container maxWidth="lg">
-        <Box sx={{ textAlign: 'center', mb: 6 }}>
-          <Chip
-            label="Simple, Predictable Pricing"
-            sx={{ mb: 2, bgcolor: '#e0f2fe', color: '#0369a1', fontWeight: 600 }}
-          />
-          <Typography variant="h3" sx={{ fontWeight: 800, mb: 2 }}>
-            Transparent Plans for Myanmar Businesses
-          </Typography>
-          <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 400, maxWidth: 640, mx: 'auto' }}>
-            All plans include a full-featured 14-day free trial. No credit card required. Cancel anytime.
-          </Typography>
-
-          {/* Monthly / Yearly Toggle */}
-          <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
-            <ToggleButtonGroup
-              value={billingCycle}
-              exclusive
-              onChange={handleCycleChange}
-              sx={{ bgcolor: '#ffffff', borderRadius: 3, p: 0.5, border: '1px solid #e2e8f0' }}
-            >
-              <ToggleButton value="monthly" sx={{ px: 3, py: 1, borderRadius: 2, fontWeight: 600 }}>
-                Monthly Billing
-              </ToggleButton>
-              <ToggleButton value="yearly" sx={{ px: 3, py: 1, borderRadius: 2, fontWeight: 600 }}>
-                Yearly Billing <Chip label="Save 16%" size="small" color="success" sx={{ ml: 1, height: 20, fontSize: 10, fontWeight: 700 }} />
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
-        </Box>
-
-        {/* Pricing Cards */}
-        <Grid container spacing={4} alignItems="stretch">
-          {plans.map((plan) => (
-            <Grid item xs={12} md={4} key={plan.id}>
-              <Card
-                sx={{
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  borderRadius: 4,
-                  p: 3,
-                  position: 'relative',
-                  border: plan.popular ? '2px solid #0284c7' : '1px solid #e2e8f0',
-                  boxShadow: plan.popular ? '0 12px 30px -10px rgba(2, 132, 199, 0.2)' : 'none',
-                }}
-              >
-                {plan.popular && (
-                  <Chip
-                    label="MOST POPULAR"
-                    color="secondary"
-                    size="small"
-                    sx={{
-                      position: 'absolute',
-                      top: 16,
-                      right: 16,
-                      fontWeight: 700,
-                      bgcolor: '#0284c7',
-                      fontSize: 10,
-                    }}
-                  />
-                )}
-
-                <CardContent sx={{ flexGrow: 1, p: 0 }}>
-                  <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
-                    {plan.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40, mb: 3 }}>
-                    {plan.tagline}
-                  </Typography>
-
-                  <Box sx={{ display: 'flex', alignItems: 'baseline', mb: 3 }}>
-                    <Typography variant="h3" sx={{ fontWeight: 800 }}>
-                      {billingCycle === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice}
-                    </Typography>
-                    <Typography variant="subtitle1" color="text.secondary" sx={{ ml: 1, fontWeight: 600 }}>
-                      MMK / {billingCycle === 'yearly' ? 'year' : 'month'}
-                    </Typography>
-                  </Box>
-
-                  <Button
-                    variant={plan.popular ? 'contained' : 'outlined'}
-                    fullWidth
-                    size="large"
-                    onClick={() => navigate(`/register?plan=${plan.id}&cycle=${billingCycle}`)}
-                    sx={{
-                      py: 1.2,
-                      borderRadius: 2,
-                      fontWeight: 700,
-                      bgcolor: plan.popular ? '#0284c7' : undefined,
-                      '&:hover': { bgcolor: plan.popular ? '#0369a1' : undefined },
-                      mb: 4,
-                    }}
-                  >
-                    Start 14-Day Free Trial
-                  </Button>
-
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-                    Plan Highlights:
-                  </Typography>
-                  <List dense disablePadding>
-                    {plan.features.map((feat, i) => (
-                      <ListItem key={i} disableGutters sx={{ py: 0.6 }}>
-                        <ListItemIcon sx={{ minWidth: 28 }}>
-                          <CheckCircleIcon sx={{ fontSize: 18, color: '#10b981' }} />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={feat}
-                          primaryTypographyProps={{ fontSize: 13, fontWeight: 500 }}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      </Container>
-    </Box>
-  );
+  return <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', py: { xs: 6, md: 10 } }}>
+    <Container maxWidth="lg">
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}><LanguageSwitcher /></Box>
+      <Box sx={{ textAlign: 'center', mb: 6 }}>
+        <Chip label={t('Simple, predictable pricing')} sx={{ mb: 2, bgcolor: '#e0f2fe', color: '#0369a1', fontWeight: 600 }} />
+        <Typography variant="h3" sx={{ fontWeight: 800, mb: 2 }}>{t('Plans for Myanmar Businesses')}</Typography>
+        <Typography color="text.secondary">{t('Plan features and limits are managed from ShopFlow administration.')}</Typography>
+        <ToggleButtonGroup value={cycle} exclusive onChange={(_, value: 'monthly' | 'yearly' | null) => value && setCycle(value)} sx={{ mt: 3, bgcolor: 'white' }}>
+          <ToggleButton value="monthly">{t('Monthly')}</ToggleButton><ToggleButton value="yearly">{t('Yearly')}</ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+      {isLoading && <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}
+      {isError && <Alert severity="error">{t('Plans could not be loaded. Please try again later.')}</Alert>}
+      {!isLoading && !isError && plans.length === 0 && <Alert severity="info">{t('No public plans are currently available.')}</Alert>}
+      <Grid container spacing={3} alignItems="stretch">
+        {plans.map((plan, index) => {
+          const price = cycle === 'yearly' ? plan.yearly_price_mmk : plan.monthly_price_mmk;
+          const inheritedFeatureNames = new Set(plans.slice(0, index).flatMap((lowerPlan) => lowerPlan.plan_features
+            ?.filter((item) => item.is_enabled && item.features?.feature_type === 'boolean')
+            .map((item) => item.features?.name)
+            .filter((name): name is string => Boolean(name)) ?? []));
+          const activeFeatures = plan.plan_features?.filter((item) => item.is_enabled && item.features?.feature_type === 'boolean'
+            && item.features?.name && !inheritedFeatureNames.has(item.features.name)) ?? [];
+          const includedPlan = plans[index - 1];
+          const limits = plan.plan_feature_limits?.filter((item) => item.features?.name) ?? [];
+          return <Grid item xs={12} md={4} key={plan.id}>
+            <Card sx={{ height: '100%', borderRadius: 3, border: plan.slug === 'business' ? '2px solid #0284c7' : '1px solid #e2e8f0' }}>
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="h5" fontWeight={800}>{t(plan.name)}</Typography>
+                <Typography color="text.secondary" sx={{ minHeight: 48, my: 1 }}>{plan.description ? t(plan.description) : ''}</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'baseline', mb: 2 }}>
+                  <Typography variant="h3" fontWeight={800}>{price.toLocaleString()}</Typography>
+                  <Typography color="text.secondary" sx={{ ml: 1 }}>{plan.currency} / {cycle === 'yearly' ? t('year') : t('month')}</Typography>
+                </Box>
+                <Button fullWidth variant="contained" sx={{ mb: 2 }} onClick={() => navigate(`/register?plan=${plan.id}&cycle=${cycle}`)}>{t('Choose this plan')}</Button>
+                <Typography variant="subtitle2" fontWeight={700}>{t('Usage limits')}</Typography>
+                <List dense disablePadding>{limits.map((item) => <ListItem key={item.features?.name} disableGutters>
+                  <ListItemText primary={`${t(item.features?.name ?? '')}: ${number(item.limit_value)}`} />
+                </ListItem>)}</List>
+                {includedPlan && <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  {t('Includes all {{plan}} features.', { plan: t(includedPlan.name) })}
+                </Typography>}
+                <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1 }}>{t(includedPlan ? 'Additional features' : 'Included features')}</Typography>
+                <List dense disablePadding>{activeFeatures.length === 0
+                  ? <ListItem disableGutters><ListItemText primary={t(includedPlan ? 'No additional features' : 'No modules configured')} /></ListItem>
+                  : activeFeatures.map((item) => <ListItem key={item.features?.name} disableGutters>
+                    <ListItemIcon sx={{ minWidth: 28 }}><CheckCircleIcon color="success" fontSize="small" /></ListItemIcon>
+                    <ListItemText primary={t(item.features?.name ?? '')} />
+                  </ListItem>)}</List>
+              </CardContent>
+            </Card>
+          </Grid>;
+        })}
+      </Grid>
+    </Container>
+  </Box>;
 };

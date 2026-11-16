@@ -21,10 +21,18 @@ import SecurityIcon from '@mui/icons-material/Security';
 import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { captureAttributionFromSearch } from '@/modules/marketing/lib/utm';
+import { LanguageSwitcher } from '@/i18n/LanguageSwitcher';
+import { useI18n } from '@/i18n/I18nContext';
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useI18n();
+
+  React.useEffect(() => {
+    captureAttributionFromSearch(window.location.search);
+  }, []);
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#ffffff', color: '#0f172a' }}>
@@ -40,24 +48,25 @@ export const LandingPage: React.FC = () => {
             </Box>
 
             <Stack direction="row" spacing={2} alignItems="center">
+              <LanguageSwitcher compact />
               <Button color="inherit" onClick={() => navigate('/pricing')} sx={{ fontWeight: 600 }}>
-                Pricing
+                {t('Pricing')}
               </Button>
               {user ? (
                 <Button variant="contained" onClick={() => navigate('/app/dashboard')} sx={{ borderRadius: 2 }}>
-                  Go to Dashboard
+                  {t('Go to Dashboard')}
                 </Button>
               ) : (
                 <>
                   <Button color="inherit" onClick={() => navigate('/login')} sx={{ fontWeight: 600 }}>
-                    Sign In
+                    {t('Sign In')}
                   </Button>
                   <Button
                     variant="contained"
                     onClick={() => navigate('/register')}
                     sx={{ borderRadius: 2, bgcolor: '#0284c7', '&:hover': { bgcolor: '#0369a1' } }}
                   >
-                    Start Free Trial
+                    {t('Start Free Trial')}
                   </Button>
                 </>
               )}
@@ -70,7 +79,7 @@ export const LandingPage: React.FC = () => {
       <Box sx={{ py: { xs: 8, md: 12 }, textAlign: 'center', bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
         <Container maxWidth="md">
           <Chip
-            label="Designed for Myanmar Wholesale & Retail Businesses"
+            label={t('Designed for Myanmar Wholesale & Retail Businesses')}
             color="secondary"
             sx={{ mb: 3, fontWeight: 600, px: 1, bgcolor: '#e0f2fe', color: '#0369a1' }}
           />
@@ -79,8 +88,7 @@ export const LandingPage: React.FC = () => {
             component="h1"
             sx={{ fontWeight: 800, fontSize: { xs: '2.4rem', md: '3.6rem' }, lineHeight: 1.15, mb: 3 }}
           >
-            Manage Products, Sales & Credit Ledgers with Zero Friction.
-          </Typography>
+            {t("Manage Products, Sales & Credit Ledgers with Zero Friction.")}</Typography>
           <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 400, mb: 4, lineHeight: 1.6 }}>
             ShopFlow is a modern multi-tenant cloud SaaS for wholesale distributors and retail shop owners.
             Complete with inventory ledgers, credit tracking, cash/partial payments, and daily business analytics in MMK.
@@ -93,16 +101,14 @@ export const LandingPage: React.FC = () => {
               onClick={() => navigate('/register')}
               sx={{ px: 4, py: 1.5, fontSize: '1.05rem', borderRadius: 2, bgcolor: '#0f172a' }}
             >
-              Start 14-Day Free Trial
-            </Button>
+              {t("Start 14-Day Free Trial")}</Button>
             <Button
               variant="outlined"
               size="large"
               onClick={() => navigate('/pricing')}
               sx={{ px: 4, py: 1.5, fontSize: '1.05rem', borderRadius: 2, borderColor: '#cbd5e1' }}
             >
-              View Plans & Pricing
-            </Button>
+              {t("View Plans & Pricing")}</Button>
           </Stack>
 
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
@@ -115,11 +121,9 @@ export const LandingPage: React.FC = () => {
       <Container maxWidth="lg" sx={{ py: { xs: 8, md: 12 } }}>
         <Box sx={{ textAlign: 'center', mb: 8 }}>
           <Typography variant="overline" sx={{ fontWeight: 700, color: '#0284c7', letterSpacing: '0.1em' }}>
-            BUILT FOR SCALE
-          </Typography>
+            {t("BUILT FOR SCALE")}</Typography>
           <Typography variant="h4" sx={{ fontWeight: 800, mt: 1 }}>
-            Everything Your Wholesale Shop Needs to Run Profitably
-          </Typography>
+            {t("Everything Your Wholesale Shop Needs to Run Profitably")}</Typography>
         </Box>
 
         <Grid container spacing={4}>

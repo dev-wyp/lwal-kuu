@@ -28,8 +28,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useOrg } from '@/context/OrgContext';
 import { useNotification } from '@/context/NotificationContext';
+import { useI18n } from '@/i18n/I18nContext';
 
 export const InventoryPage: React.FC = () => {
+  const { t } = useI18n();
   const { currentOrg, formatCurrency } = useOrg();
   const { showSuccess, showError } = useNotification();
   const queryClient = useQueryClient();
@@ -118,11 +120,9 @@ export const InventoryPage: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
-            Inventory Ledger & Balances
-          </Typography>
+            {t("Inventory Ledger & Balances")}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Immutable movement ledger, real-time stock on hand, and administrative adjustments.
-          </Typography>
+            {t("Immutable movement ledger, real-time stock on hand, and administrative adjustments.")}</Typography>
         </div>
         <Button
           variant="contained"
@@ -133,8 +133,7 @@ export const InventoryPage: React.FC = () => {
           }}
           sx={{ borderRadius: 2, bgcolor: '#0f172a', fontWeight: 600 }}
         >
-          Stock Adjustment
-        </Button>
+          {t("Stock Adjustment")}</Button>
       </Box>
 
       <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff', mb: 3 }}>
@@ -143,8 +142,8 @@ export const InventoryPage: React.FC = () => {
           onChange={(_e, v) => setCurrentTab(v)}
           sx={{ px: 2, borderBottom: '1px solid #e2e8f0' }}
         >
-          <Tab label="Current Stock on Hand" sx={{ fontWeight: 600 }} />
-          <Tab label="Stock Movements Audit Ledger" sx={{ fontWeight: 600 }} />
+          <Tab label={t("Current Stock on Hand")} sx={{ fontWeight: 600 }} />
+          <Tab label={t("Stock Movements Audit Ledger")} sx={{ fontWeight: 600 }} />
         </Tabs>
 
         {currentTab === 0 ? (
@@ -152,13 +151,13 @@ export const InventoryPage: React.FC = () => {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>SKU</TableCell>
-                  <TableCell>Product Name</TableCell>
-                  <TableCell align="center">Unit</TableCell>
-                  <TableCell align="right">Cost Price (Avg)</TableCell>
+                  <TableCell>{t("SKU")}</TableCell>
+                  <TableCell>{t("Product Name")}</TableCell>
+                  <TableCell align="center">{t("Unit")}</TableCell>
+                  <TableCell align="right">{t("Cost Price (Avg)")}</TableCell>
                   <TableCell align="right">Selling Price</TableCell>
-                  <TableCell align="center">Stock on Hand</TableCell>
-                  <TableCell align="right">Total Stock Value</TableCell>
+                  <TableCell align="center">{t("Stock on Hand")}</TableCell>
+                  <TableCell align="right">{t("Total Stock Value")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -194,8 +193,7 @@ export const InventoryPage: React.FC = () => {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                      No stock balances recorded.
-                    </TableCell>
+                      {t("No stock balances recorded.")}</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -206,13 +204,13 @@ export const InventoryPage: React.FC = () => {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Date & Time</TableCell>
-                  <TableCell>Product</TableCell>
-                  <TableCell>Movement Type</TableCell>
-                  <TableCell align="right">Quantity</TableCell>
-                  <TableCell align="right">Cost at Move</TableCell>
-                  <TableCell>Reference</TableCell>
-                  <TableCell>Notes</TableCell>
+                  <TableCell>{t("Date & Time")}</TableCell>
+                  <TableCell>{t("Product")}</TableCell>
+                  <TableCell>{t("Movement Type")}</TableCell>
+                  <TableCell align="right">{t("Quantity")}</TableCell>
+                  <TableCell align="right">{t("Cost at Move")}</TableCell>
+                  <TableCell>{t("Reference")}</TableCell>
+                  <TableCell>{t("Notes")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -251,8 +249,7 @@ export const InventoryPage: React.FC = () => {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                      No movements recorded yet.
-                    </TableCell>
+                      {t("No movements recorded yet.")}</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -263,7 +260,7 @@ export const InventoryPage: React.FC = () => {
 
       {/* Stock Adjustment Modal */}
       <Dialog open={adjustModalOpen} onClose={() => setAdjustModalOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Record Stock Adjustment</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>{t("Record Stock Adjustment")}</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2}>
             <Grid item xs={12}>
@@ -271,7 +268,7 @@ export const InventoryPage: React.FC = () => {
                 fullWidth
                 size="small"
                 select
-                label="Product"
+                label={t("Product")}
                 value={adjustProductId}
                 onChange={(e) => setAdjustProductId(e.target.value)}
               >
@@ -290,7 +287,7 @@ export const InventoryPage: React.FC = () => {
                 label="Quantity Delta (e.g. -5 or +10)"
                 value={adjustDelta}
                 onChange={(e) => setAdjustDelta(Number(e.target.value))}
-                helperText="Use negative for damages/loss, positive for found stock"
+                helperText={t("Use negative for damages/loss, positive for found stock")}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -298,15 +295,15 @@ export const InventoryPage: React.FC = () => {
                 fullWidth
                 size="small"
                 select
-                label="Adjustment Reason"
+                label={t("Adjustment Reason")}
                 value={adjustReason}
                 onChange={(e) => setAdjustReason(e.target.value)}
               >
-                <MenuItem value="damaged">Damaged / Broken</MenuItem>
-                <MenuItem value="expired">Expired Goods</MenuItem>
-                <MenuItem value="count_correction">Count Discrepancy</MenuItem>
-                <MenuItem value="loss">Lost / Theft</MenuItem>
-                <MenuItem value="other">Other Reason</MenuItem>
+                <MenuItem value="damaged">{t("Damaged / Broken")}</MenuItem>
+                <MenuItem value="expired">{t("Expired Goods")}</MenuItem>
+                <MenuItem value="count_correction">{t("Count Discrepancy")}</MenuItem>
+                <MenuItem value="loss">{t("Lost / Theft")}</MenuItem>
+                <MenuItem value="other">{t("Other Reason")}</MenuItem>
               </TextField>
             </Grid>
             <Grid item xs={12}>
@@ -324,8 +321,7 @@ export const InventoryPage: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setAdjustModalOpen(false)} disabled={adjusting}>
-            Cancel
-          </Button>
+            {t("Cancel")}</Button>
           <Button
             variant="contained"
             onClick={handleCreateAdjustment}

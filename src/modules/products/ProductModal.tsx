@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { useOrg } from '@/context/OrgContext';
 import { useNotification } from '@/context/NotificationContext';
 import { useQueryClient } from '@tanstack/react-query';
+import { useI18n } from '@/i18n/I18nContext';
 
 const productSchema = z.object({
   sku: z.string().min(1, 'SKU is required'),
@@ -47,6 +48,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   categories,
   units,
 }) => {
+  const { t } = useI18n();
   const { currentOrg } = useOrg();
   const { showSuccess, showError } = useNotification();
   const queryClient = useQueryClient();
@@ -164,7 +166,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               <TextField
                 fullWidth
                 size="small"
-                label="SKU Code"
+                label={t("SKU Code")}
                 {...register('sku')}
                 error={Boolean(errors.sku)}
                 helperText={errors.sku?.message}
@@ -174,7 +176,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               <TextField
                 fullWidth
                 size="small"
-                label="Barcode / GTIN (Optional)"
+                label={t("Barcode / GTIN (Optional)")}
                 {...register('barcode')}
               />
             </Grid>
@@ -182,7 +184,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               <TextField
                 fullWidth
                 size="small"
-                label="Product Name"
+                label={t("Product Name")}
                 {...register('name')}
                 error={Boolean(errors.name)}
                 helperText={errors.name?.message}
@@ -193,7 +195,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 fullWidth
                 size="small"
                 select
-                label="Category"
+                label={t("Category")}
                 defaultValue=""
                 {...register('categoryId')}
               >
@@ -210,7 +212,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 fullWidth
                 size="small"
                 select
-                label="Unit of Measurement"
+                label={t("Unit of Measurement")}
                 defaultValue={units[0]?.id || ''}
                 {...register('unitId')}
                 error={Boolean(errors.unitId)}
@@ -228,7 +230,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 fullWidth
                 size="small"
                 type="number"
-                label="Purchase Price (MMK)"
+                label={t("Purchase Price (MMK)")}
                 {...register('purchasePrice')}
                 error={Boolean(errors.purchasePrice)}
                 helperText={errors.purchasePrice?.message}
@@ -239,7 +241,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 fullWidth
                 size="small"
                 type="number"
-                label="Selling Price (MMK)"
+                label={t("Selling Price (MMK)")}
                 {...register('salePrice')}
                 error={Boolean(errors.salePrice)}
                 helperText={errors.salePrice?.message}
@@ -250,7 +252,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 fullWidth
                 size="small"
                 type="number"
-                label="Low Stock Alert Threshold"
+                label={t("Low Stock Alert Threshold")}
                 {...register('lowStockThreshold')}
                 error={Boolean(errors.lowStockThreshold)}
                 helperText={errors.lowStockThreshold?.message}
@@ -262,7 +264,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 size="small"
                 multiline
                 rows={2}
-                label="Description / Notes"
+                label={t("Description / Notes")}
                 {...register('description')}
               />
             </Grid>
@@ -270,8 +272,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={onClose} disabled={isSubmitting}>
-            Cancel
-          </Button>
+            {t("Cancel")}</Button>
           <Button
             type="submit"
             variant="contained"

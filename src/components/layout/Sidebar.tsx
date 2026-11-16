@@ -9,6 +9,7 @@ import {
   Box,
   Typography,
   Divider,
+  Chip,
 } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
@@ -24,8 +25,11 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import LoyaltyIcon from '@mui/icons-material/Loyalty';
 import SettingsIcon from '@mui/icons-material/Settings';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { useEntitlements } from '@/modules/subscription/useEntitlements';
+import { useI18n } from '@/i18n/I18nContext';
 
 interface SidebarProps {
   open: boolean;
@@ -37,21 +41,22 @@ interface NavItem {
   title: string;
   path: string;
   icon: React.ReactNode;
+  feature?: string;
 }
 
 const mainNavItems: NavItem[] = [
   { title: 'Dashboard', path: '/app/dashboard', icon: <DashboardIcon fontSize="small" /> },
-  { title: 'POS / Sales', path: '/app/sales', icon: <PointOfSaleIcon fontSize="small" /> },
-  { title: 'Products', path: '/app/products', icon: <Inventory2Icon fontSize="small" /> },
-  { title: 'Categories', path: '/app/categories', icon: <CategoryIcon fontSize="small" /> },
-  { title: 'Customers', path: '/app/customers', icon: <PeopleAltIcon fontSize="small" /> },
-  { title: 'Suppliers', path: '/app/suppliers', icon: <LocalShippingIcon fontSize="small" /> },
-  { title: 'Purchases', path: '/app/purchases', icon: <ShoppingBagIcon fontSize="small" /> },
-  { title: 'Inventory Ledger', path: '/app/inventory', icon: <WarehouseIcon fontSize="small" /> },
-  { title: 'Customer Payments', path: '/app/payments', icon: <PaymentIcon fontSize="small" /> },
-  { title: 'Expenses', path: '/app/expenses', icon: <ReceiptLongIcon fontSize="small" /> },
-  { title: 'Reports & Analytics', path: '/app/reports', icon: <AssessmentIcon fontSize="small" /> },
-  { title: 'SaaS Subscription', path: '/app/subscription', icon: <LoyaltyIcon fontSize="small" /> },
+  { title: 'POS / Sales', path: '/app/sales', icon: <PointOfSaleIcon fontSize="small" />, feature: 'sales_management' },
+  { title: 'Products', path: '/app/products', icon: <Inventory2Icon fontSize="small" />, feature: 'product_management' },
+  { title: 'Categories', path: '/app/categories', icon: <CategoryIcon fontSize="small" />, feature: 'category_management' },
+  { title: 'Customers', path: '/app/customers', icon: <PeopleAltIcon fontSize="small" />, feature: 'customer_management' },
+  { title: 'Suppliers', path: '/app/suppliers', icon: <LocalShippingIcon fontSize="small" />, feature: 'supplier_management' },
+  { title: 'Purchases', path: '/app/purchases', icon: <ShoppingBagIcon fontSize="small" />, feature: 'purchase_management' },
+  { title: 'Inventory Ledger', path: '/app/inventory', icon: <WarehouseIcon fontSize="small" />, feature: 'inventory_management' },
+  { title: 'Customer Payments', path: '/app/payments', icon: <PaymentIcon fontSize="small" />, feature: 'payment_receipt_mgmt' },
+  { title: 'Expenses', path: '/app/expenses', icon: <ReceiptLongIcon fontSize="small" />, feature: 'expense_management' },
+  { title: 'Reports & Analytics', path: '/app/reports', icon: <AssessmentIcon fontSize="small" />, feature: 'daily_sales_report' },
+  { title: 'Plan & Features', path: '/app/subscription', icon: <LoyaltyIcon fontSize="small" /> },
   { title: 'Settings', path: '/app/settings', icon: <SettingsIcon fontSize="small" /> },
 ];
 
@@ -64,6 +69,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, isMobile }) => 
   const location = useLocation();
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { t } = useI18n();
+  const { data: entitlements = [], isLoading: entitlementsLoading } = useEntitlements();
 
   const handleNavClick = (path: string) => {
     navigate(path);
@@ -76,13 +83,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, isMobile }) => 
     <Box sx={{ width: 250, display: 'flex', flexDirection: 'column', height: '100%', py: 1 }}>
       <Box sx={{ px: 2, py: 1.5 }}>
         <Typography variant="overline" sx={{ fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em' }}>
-          Shop Operations
+          {t('Shop Operations')}
         </Typography>
       </Box>
 
       <List dense sx={{ px: 1 }}>
         {mainNavItems.map((item) => {
           const isActive = location.pathname === item.path || (item.path !== '/app/dashboard' && location.pathname.startsWith(item.path));
+          const itemEntitlement = item.feature ? entitlements.find((value) => value.feature_key === item.feature) : undefined;
+          const locked = !entitlementsLoading && Boolean(item.feature && !itemEntitlement?.is_allowed);
           return (
             <ListItem key={item.path} disablePadding sx={{ mb: 0.5 }}>
               <ListItemButton
@@ -92,6 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, isMobile }) => 
                   borderRadius: 2,
                   py: 1,
                   px: 1.5,
+                  opacity: locked ? 0.66 : 1,
                   '&.Mui-selected': {
                     bgcolor: '#0f172a',
                     color: '#ffffff',
@@ -104,12 +114,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, isMobile }) => 
                   {item.icon}
                 </ListItemIcon>
                 <ListItemText
-                  primary={item.title}
+                  primary={t(item.title)}
                   primaryTypographyProps={{
                     fontSize: 13,
                     fontWeight: isActive ? 600 : 500,
                   }}
                 />
+                {locked && <Chip size="small" label={t('Upgrade')} icon={<LockOutlinedIcon />} sx={{ height: 22, fontSize: 10 }} />}
               </ListItemButton>
             </ListItem>
           );
@@ -121,8 +132,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, isMobile }) => 
           <Divider sx={{ my: 1.5 }} />
           <Box sx={{ px: 2, py: 1 }}>
             <Typography variant="overline" sx={{ fontWeight: 700, color: '#dc2626', letterSpacing: '0.08em' }}>
-              Platform Super-Admin
-            </Typography>
+              {t("Platform Super-Admin")}</Typography>
           </Box>
           <List dense sx={{ px: 1 }}>
             {platformNavItems.map((item) => {
@@ -164,7 +174,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, onClose, isMobile }) => 
           ShopFlow Cloud v1.0
         </Typography>
         <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: 11 }}>
-          Myanmar & Southeast Asia
+          {t('Myanmar & Southeast Asia')}
         </Typography>
       </Box>
     </Box>

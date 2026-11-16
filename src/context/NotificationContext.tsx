@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { Snackbar, Alert, AlertColor } from '@mui/material';
+import { useI18n } from '@/i18n/I18nContext';
 
 interface NotificationContextType {
   showNotification: (message: string, severity?: AlertColor) => void;
@@ -10,15 +11,16 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [severity, setSeverity] = useState<AlertColor>('info');
 
   const showNotification = useCallback((msg: string, sev: AlertColor = 'info') => {
-    setMessage(msg);
+    setMessage(t(msg));
     setSeverity(sev);
     setOpen(true);
-  }, []);
+  }, [t]);
 
   const showSuccess = useCallback((msg: string) => {
     showNotification(msg, 'success');

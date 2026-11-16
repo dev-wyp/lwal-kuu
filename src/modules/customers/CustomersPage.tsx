@@ -30,6 +30,7 @@ import { CustomerLedgerModal } from './CustomerLedgerModal';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { useI18n } from '@/i18n/I18nContext';
 
 const customerSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -43,6 +44,7 @@ const customerSchema = z.object({
 type CustomerFormData = z.infer<typeof customerSchema>;
 
 export const CustomersPage: React.FC = () => {
+  const { t } = useI18n();
   const { currentOrg, formatCurrency } = useOrg();
   const { showSuccess, showError } = useNotification();
   const queryClient = useQueryClient();
@@ -128,11 +130,9 @@ export const CustomersPage: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
-            Customer Directory & Credit Ledgers
-          </Typography>
+            {t("Customer Directory & Credit Ledgers")}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Manage wholesale customers, credit limits, and real-time outstanding balances.
-          </Typography>
+            {t("Manage wholesale customers, credit limits, and real-time outstanding balances.")}</Typography>
         </div>
         <Button
           variant="contained"
@@ -140,15 +140,14 @@ export const CustomersPage: React.FC = () => {
           onClick={handleOpenAdd}
           sx={{ borderRadius: 2, bgcolor: '#0f172a', fontWeight: 600 }}
         >
-          Add Customer
-        </Button>
+          {t("Add Customer")}</Button>
       </Box>
 
       {/* Search */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
         <TextField
           size="small"
-          placeholder="Search customers by name..."
+          placeholder={t("Search customers by name...")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ minWidth: 280 }}
@@ -168,14 +167,14 @@ export const CustomersPage: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Customer Name</TableCell>
-                <TableCell>Phone Number</TableCell>
-                <TableCell align="right">Credit Limit</TableCell>
-                <TableCell align="right">Opening Bal</TableCell>
-                <TableCell align="right">Confirmed Sales</TableCell>
-                <TableCell align="right">Payments</TableCell>
-                <TableCell align="right">Current Balance</TableCell>
-                <TableCell align="center">Ledger Statement</TableCell>
+                <TableCell>{t("Customer Name")}</TableCell>
+                <TableCell>{t("Phone Number")}</TableCell>
+                <TableCell align="right">{t("Credit Limit")}</TableCell>
+                <TableCell align="right">{t("Opening Bal")}</TableCell>
+                <TableCell align="right">{t("Confirmed Sales")}</TableCell>
+                <TableCell align="right">{t("Payments")}</TableCell>
+                <TableCell align="right">{t("Current Balance")}</TableCell>
+                <TableCell align="center">{t("Ledger Statement")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -213,8 +212,7 @@ export const CustomersPage: React.FC = () => {
                           })
                         }
                       >
-                        Statement
-                      </Button>
+                        {t("Statement")}</Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -232,7 +230,7 @@ export const CustomersPage: React.FC = () => {
 
       {/* Add Customer Modal */}
       <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>New Customer</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>{t("New Customer")}</DialogTitle>
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogContent dividers>
             <Grid container spacing={2}>
@@ -240,7 +238,7 @@ export const CustomersPage: React.FC = () => {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Customer / Shop Name"
+                  label={t("Customer / Shop Name")}
                   {...register('name')}
                   error={Boolean(errors.name)}
                   helperText={errors.name?.message}
@@ -250,7 +248,7 @@ export const CustomersPage: React.FC = () => {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Phone Number"
+                  label={t("Phone Number")}
                   placeholder="09..."
                   {...register('phone')}
                 />
@@ -259,7 +257,7 @@ export const CustomersPage: React.FC = () => {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Email (Optional)"
+                  label={t("Email (Optional)")}
                   {...register('email')}
                 />
               </Grid>
@@ -268,7 +266,7 @@ export const CustomersPage: React.FC = () => {
                   fullWidth
                   size="small"
                   type="number"
-                  label="Credit Limit (MMK)"
+                  label={t("Credit Limit (MMK)")}
                   {...register('creditLimit')}
                 />
               </Grid>
@@ -277,7 +275,7 @@ export const CustomersPage: React.FC = () => {
                   fullWidth
                   size="small"
                   type="number"
-                  label="Opening Receivable Balance (MMK)"
+                  label={t("Opening Receivable Balance (MMK)")}
                   {...register('openingBalance')}
                 />
               </Grid>
@@ -295,8 +293,7 @@ export const CustomersPage: React.FC = () => {
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2 }}>
             <Button onClick={() => setModalOpen(false)} disabled={isSubmitting}>
-              Cancel
-            </Button>
+              {t("Cancel")}</Button>
             <Button
               type="submit"
               variant="contained"

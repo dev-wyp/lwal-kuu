@@ -29,8 +29,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useOrg } from '@/context/OrgContext';
 import { useNavigate } from 'react-router-dom';
+import { useI18n } from '@/i18n/I18nContext';
 
 export const DashboardPage: React.FC = () => {
+  const { t } = useI18n();
   const { currentOrg, formatCurrency } = useOrg();
   const navigate = useNavigate();
   const orgId = currentOrg?.id;
@@ -128,10 +130,9 @@ export const DashboardPage: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
-            Business Overview
-          </Typography>
+            {t("Business Overview")}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Live operations and financial metrics for {currentOrg?.name}
+            {t("Live operations and financial metrics for") + " "}{currentOrg?.name}
           </Typography>
         </div>
         <Button
@@ -140,8 +141,7 @@ export const DashboardPage: React.FC = () => {
           onClick={() => navigate('/app/sales')}
           sx={{ borderRadius: 2, bgcolor: '#0284c7', '&:hover': { bgcolor: '#0369a1' } }}
         >
-          Open POS
-        </Button>
+          {t("Open POS")}</Button>
       </Box>
 
       {/* Guided Onboarding Checklist for New Shop */}
@@ -160,13 +160,11 @@ export const DashboardPage: React.FC = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <CheckCircleOutlineIcon sx={{ color: '#0284c7', fontSize: 24 }} />
             <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a' }}>
-              Welcome to ShopFlow! Quick Setup Checklist
-            </Typography>
-            <Chip label="Guided Onboarding" size="small" sx={{ bgcolor: '#e0f2fe', color: '#0369a1', fontWeight: 700, height: 20, fontSize: 10 }} />
+              {t("Welcome to ShopFlow! Quick Setup Checklist")}</Typography>
+            <Chip label={t("Guided Onboarding")} size="small" sx={{ bgcolor: '#e0f2fe', color: '#0369a1', fontWeight: 700, height: 20, fontSize: 10 }} />
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-            Follow these 4 automated steps to initialize your shop catalog, stock ledger, and POS billing:
-          </Typography>
+            {t("Follow these 4 automated steps to initialize your shop catalog, stock ledger, and POS billing:")}</Typography>
 
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={3}>
@@ -182,8 +180,7 @@ export const DashboardPage: React.FC = () => {
               >
                 <CategoryIcon sx={{ color: '#0284c7', mb: 1 }} />
                 <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                  1. Setup Categories
-                </Typography>
+                  {t("1. Setup Categories")}</Typography>
                 <Typography variant="caption" color="text.secondary">
                   Organize items into departments or brands &rarr;
                 </Typography>
@@ -203,8 +200,7 @@ export const DashboardPage: React.FC = () => {
               >
                 <InventoryIcon sx={{ color: '#6366f1', mb: 1 }} />
                 <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                  2. Add / Import Products
-                </Typography>
+                  {t("2. Add / Import Products")}</Typography>
                 <Typography variant="caption" color="text.secondary">
                   Add items or import via CSV template &rarr;
                 </Typography>
@@ -224,8 +220,7 @@ export const DashboardPage: React.FC = () => {
               >
                 <PeopleIcon sx={{ color: '#10b981', mb: 1 }} />
                 <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                  3. Add Customers & Debt
-                </Typography>
+                  {t("3. Add Customers & Debt")}</Typography>
                 <Typography variant="caption" color="text.secondary">
                   Register buyers and credit terms &rarr;
                 </Typography>
@@ -245,8 +240,7 @@ export const DashboardPage: React.FC = () => {
               >
                 <PointOfSaleIcon sx={{ color: '#f59e0b', mb: 1 }} />
                 <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                  4. Make First POS Sale
-                </Typography>
+                  {t("4. Make First POS Sale")}</Typography>
                 <Typography variant="caption" color="text.secondary">
                   Create invoice & deduct stock ledger &rarr;
                 </Typography>
@@ -271,7 +265,7 @@ export const DashboardPage: React.FC = () => {
                 {formatCurrency(metrics?.todayTotal || 0)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Profit: {formatCurrency(metrics?.todayProfit || 0)}
+                {t("Profit:") + " "}{formatCurrency(metrics?.todayProfit || 0)}
               </Typography>
             </CardContent>
           </Card>
@@ -282,16 +276,14 @@ export const DashboardPage: React.FC = () => {
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                 <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b' }}>
-                  MONTHLY SALES
-                </Typography>
+                  {t("MONTHLY SALES")}</Typography>
                 <ShoppingCartIcon sx={{ color: '#0284c7', fontSize: 20 }} />
               </Box>
               <Typography variant="h5" sx={{ fontWeight: 800 }}>
                 {formatCurrency(metrics?.monthTotal || 0)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                This calendar month
-              </Typography>
+                {t("This calendar month")}</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -301,16 +293,14 @@ export const DashboardPage: React.FC = () => {
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                 <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b' }}>
-                  CUSTOMER RECEIVABLES
-                </Typography>
+                  {t("CUSTOMER RECEIVABLES")}</Typography>
                 <AccountBalanceWalletIcon sx={{ color: '#f59e0b', fontSize: 20 }} />
               </Box>
               <Typography variant="h5" sx={{ fontWeight: 800, color: '#d97706' }}>
                 {formatCurrency(metrics?.totalReceivables || 0)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Unpaid customer credit
-              </Typography>
+                {t("Unpaid customer credit")}</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -320,8 +310,7 @@ export const DashboardPage: React.FC = () => {
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                 <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b' }}>
-                  TOTAL STOCK VALUE
-                </Typography>
+                  {t("TOTAL STOCK VALUE")}</Typography>
                 <InventoryIcon sx={{ color: '#8b5cf6', fontSize: 20 }} />
               </Box>
               <Typography variant="h5" sx={{ fontWeight: 800 }}>
@@ -338,8 +327,7 @@ export const DashboardPage: React.FC = () => {
                   />
                 ) : (
                   <Typography variant="caption" color="text.secondary">
-                    Stock levels healthy
-                  </Typography>
+                    {t("Stock levels healthy")}</Typography>
                 )}
               </Box>
             </CardContent>
@@ -351,24 +339,22 @@ export const DashboardPage: React.FC = () => {
       <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            Recent Sales Invoices
-          </Typography>
+            {t("Recent Sales Invoices")}</Typography>
           <Button size="small" onClick={() => navigate('/app/sales')}>
-            View All Sales
-          </Button>
+            {t("View All Sales")}</Button>
         </Box>
 
         <TableContainer>
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Invoice #</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell>Customer</TableCell>
-                <TableCell align="right">Total</TableCell>
-                <TableCell align="right">Paid</TableCell>
-                <TableCell align="center">Payment</TableCell>
-                <TableCell align="center">Status</TableCell>
+                <TableCell>{t("Invoice #")}</TableCell>
+                <TableCell>{t("Date")}</TableCell>
+                <TableCell>{t("Customer")}</TableCell>
+                <TableCell align="right">{t("Total")}</TableCell>
+                <TableCell align="right">{t("Paid")}</TableCell>
+                <TableCell align="center">{t("Payment")}</TableCell>
+                <TableCell align="center">{t("Status")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

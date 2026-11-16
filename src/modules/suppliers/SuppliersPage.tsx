@@ -28,6 +28,7 @@ import { useNotification } from '@/context/NotificationContext';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { useI18n } from '@/i18n/I18nContext';
 
 const supplierSchema = z.object({
   name: z.string().min(1, 'Supplier name is required'),
@@ -41,6 +42,7 @@ const supplierSchema = z.object({
 type SupplierFormData = z.infer<typeof supplierSchema>;
 
 export const SuppliersPage: React.FC = () => {
+  const { t } = useI18n();
   const { currentOrg, formatCurrency } = useOrg();
   const { showSuccess, showError } = useNotification();
   const queryClient = useQueryClient();
@@ -125,11 +127,9 @@ export const SuppliersPage: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
-            Supplier Directory & Accounts Payable
-          </Typography>
+            {t("Supplier Directory & Accounts Payable")}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Manage product manufacturers, distributors, and outstanding payables.
-          </Typography>
+            {t("Manage product manufacturers, distributors, and outstanding payables.")}</Typography>
         </div>
         <Button
           variant="contained"
@@ -137,15 +137,14 @@ export const SuppliersPage: React.FC = () => {
           onClick={handleOpenAdd}
           sx={{ borderRadius: 2, bgcolor: '#0f172a', fontWeight: 600 }}
         >
-          Add Supplier
-        </Button>
+          {t("Add Supplier")}</Button>
       </Box>
 
       {/* Search */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
         <TextField
           size="small"
-          placeholder="Search suppliers by name..."
+          placeholder={t("Search suppliers by name...")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ minWidth: 280 }}
@@ -165,12 +164,12 @@ export const SuppliersPage: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Supplier Name</TableCell>
-                <TableCell>Phone</TableCell>
-                <TableCell align="right">Opening Bal</TableCell>
-                <TableCell align="right">Received Purchases</TableCell>
-                <TableCell align="right">Payments Made</TableCell>
-                <TableCell align="right">Current Payable</TableCell>
+                <TableCell>{t("Supplier Name")}</TableCell>
+                <TableCell>{t("Phone")}</TableCell>
+                <TableCell align="right">{t("Opening Bal")}</TableCell>
+                <TableCell align="right">{t("Received Purchases")}</TableCell>
+                <TableCell align="right">{t("Payments Made")}</TableCell>
+                <TableCell align="right">{t("Current Payable")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -207,7 +206,7 @@ export const SuppliersPage: React.FC = () => {
 
       {/* Add Supplier Modal */}
       <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>New Supplier</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>{t("New Supplier")}</DialogTitle>
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogContent dividers>
             <Grid container spacing={2}>
@@ -215,7 +214,7 @@ export const SuppliersPage: React.FC = () => {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Supplier / Company Name"
+                  label={t("Supplier / Company Name")}
                   {...register('name')}
                   error={Boolean(errors.name)}
                   helperText={errors.name?.message}
@@ -225,7 +224,7 @@ export const SuppliersPage: React.FC = () => {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Contact Person"
+                  label={t("Contact Person")}
                   {...register('contactPerson')}
                 />
               </Grid>
@@ -233,7 +232,7 @@ export const SuppliersPage: React.FC = () => {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Phone Number"
+                  label={t("Phone Number")}
                   placeholder="09..."
                   {...register('phone')}
                 />
@@ -242,7 +241,7 @@ export const SuppliersPage: React.FC = () => {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Email (Optional)"
+                  label={t("Email (Optional)")}
                   {...register('email')}
                 />
               </Grid>
@@ -251,7 +250,7 @@ export const SuppliersPage: React.FC = () => {
                   fullWidth
                   size="small"
                   type="number"
-                  label="Opening Payable Balance (MMK)"
+                  label={t("Opening Payable Balance (MMK)")}
                   {...register('openingBalance')}
                 />
               </Grid>
@@ -259,7 +258,7 @@ export const SuppliersPage: React.FC = () => {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Office / Warehouse Address"
+                  label={t("Office / Warehouse Address")}
                   multiline
                   rows={2}
                   {...register('address')}
@@ -269,8 +268,7 @@ export const SuppliersPage: React.FC = () => {
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2 }}>
             <Button onClick={() => setModalOpen(false)} disabled={isSubmitting}>
-              Cancel
-            </Button>
+              {t("Cancel")}</Button>
             <Button
               type="submit"
               variant="contained"

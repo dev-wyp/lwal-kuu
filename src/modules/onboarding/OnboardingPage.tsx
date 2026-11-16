@@ -19,6 +19,9 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
 import { useNotification } from '@/context/NotificationContext';
+import { clearStoredAttribution, readStoredAttribution } from '@/modules/marketing/lib/utm';
+import { useI18n } from '@/i18n/I18nContext';
+import { LanguageSwitcher } from '@/i18n/LanguageSwitcher';
 
 const onboardingSchema = z.object({
   name: z.string().min(2, 'Shop name must be at least 2 characters'),
@@ -30,6 +33,7 @@ const onboardingSchema = z.object({
 type OnboardingFormData = z.infer<typeof onboardingSchema>;
 
 export const OnboardingPage: React.FC = () => {
+  const { t } = useI18n();
   const { user } = useAuth();
   const { currentOrg, organizations, loading: orgLoading, refreshOrgs } = useOrg();
   const { showSuccess } = useNotification();
@@ -178,6 +182,24 @@ export const OnboardingPage: React.FC = () => {
 
       showSuccess(`Organization "${createdOrgName}" created! Your 14-day trial is active.`);
       localStorage.setItem('shopflow_active_org_id', createdOrgId);
+      const attribution = readStoredAttribution();
+      if (attribution) {
+        try {
+          const { error: attributionError } = await supabase.rpc('attribute_trial_signup', {
+            p_org_id: createdOrgId,
+            p_user_id: user.id,
+            p_utm_source: attribution.utm_source,
+            p_utm_medium: attribution.utm_medium,
+            p_utm_campaign: attribution.utm_campaign,
+            p_utm_content: attribution.utm_content,
+            p_email: user.email ?? null,
+            p_full_name: typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : null,
+          });
+          if (!attributionError) clearStoredAttribution();
+        } catch {
+          // Attribution must never block onboarding
+        }
+      }
       await refreshOrgs();
       // Full redirect to guarantee fresh state and sidebar render
       window.location.href = '/app/dashboard';
@@ -191,15 +213,15 @@ export const OnboardingPage: React.FC = () => {
 
   return (
     <Container maxWidth="sm" sx={{ py: 6 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}><LanguageSwitcher /></Box>
       <Paper elevation={0} sx={{ p: { xs: 3, sm: 5 }, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
           <StorefrontIcon sx={{ fontSize: 32, color: '#0284c7' }} />
           <Typography variant="h5" sx={{ fontWeight: 800 }}>
-            Set Up Your Shop Organization
-          </Typography>
+            {t("Set Up Your Shop Organization")}</Typography>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Enter your wholesale shop details to initialize your inventory ledger, accounting defaults, and free trial.
+          {t('Enter your wholesale shop details to initialize your inventory ledger, accounting defaults, and free trial.')}
         </Typography>
 
         {errorMsg && (
@@ -213,32 +235,32 @@ export const OnboardingPage: React.FC = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Shop / Business Name"
-                placeholder="e.g. Shwe Thiri Wholesale"
+                label={t("Shop / Business Name")}
+                placeholder={t('e.g. Shwe Thiri Wholesale')}
                 size="small"
                 autoFocus
                 {...register('name', { onChange: handleNameChange })}
                 error={Boolean(errors.name)}
-                helperText={errors.name?.message}
+                helperText={errors.name?.message ? t(errors.name.message) : undefined}
               />
             </Grid>
 
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Shop URL Slug (Identifier)"
-                placeholder="e.g. shwe-thiri"
+                label={t("Shop URL Slug (Identifier)")}
+                placeholder={t('e.g. shwe-thiri')}
                 size="small"
                 {...register('slug')}
                 error={Boolean(errors.slug)}
-                helperText={errors.slug?.message || 'Unique identifier for your business'}
+                helperText={errors.slug?.message ? t(errors.slug.message) : t('Unique identifier for your business')}
               />
             </Grid>
 
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Phone Number"
+                label={t("Phone Number")}
                 placeholder="09123456789"
                 size="small"
                 {...register('phone')}
@@ -248,7 +270,7 @@ export const OnboardingPage: React.FC = () => {
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Default Currency & Timezone"
+                label={t('Default Currency & Timezone')}
                 value="MMK (Ks) &bull; Asia/Yangon"
                 size="small"
                 disabled
@@ -258,8 +280,8 @@ export const OnboardingPage: React.FC = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Physical Address / Market Location"
-                placeholder="e.g. Bayintnaung Wholesale Market, Yangon"
+                label={t('Physical Address / Market Location')}
+                placeholder={t('e.g. Bayintnaung Wholesale Market, Yangon')}
                 size="small"
                 multiline
                 rows={2}
@@ -282,7 +304,7 @@ export const OnboardingPage: React.FC = () => {
                   bgcolor: '#0f172a',
                 }}
               >
-                {loading ? <CircularProgress size={24} sx={{ color: '#ffffff' }} /> : 'Launch ShopFlow'}
+                {loading ? <CircularProgress size={24} sx={{ color: '#ffffff' }} /> : t('Launch ShopFlow')}
               </Button>
             </Grid>
           </Grid>

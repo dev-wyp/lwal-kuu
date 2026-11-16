@@ -6,8 +6,10 @@ import { Sidebar } from './Sidebar';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
 import AddBusinessIcon from '@mui/icons-material/AddBusiness';
+import { useI18n } from '@/i18n/I18nContext';
 
 export const AppLayout: React.FC = () => {
+  const { t } = useI18n();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
@@ -49,8 +51,7 @@ export const AppLayout: React.FC = () => {
       >
         <AddBusinessIcon sx={{ fontSize: 64, color: '#0284c7', mb: 2 }} />
         <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
-          Welcome to ShopFlow!
-        </Typography>
+          {t("Welcome to ShopFlow!")}</Typography>
         <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 480, mb: 3 }}>
           You don&apos;t have an active shop or organization yet. Create your organization in 30 seconds and start your 14-day free trial.
         </Typography>
@@ -60,8 +61,7 @@ export const AppLayout: React.FC = () => {
           onClick={() => navigate('/onboarding')}
           sx={{ borderRadius: 2, px: 4, py: 1.2, fontWeight: 600 }}
         >
-          Create Your Organization
-        </Button>
+          {t("Create Your Organization")}</Button>
       </Box>
     );
   }

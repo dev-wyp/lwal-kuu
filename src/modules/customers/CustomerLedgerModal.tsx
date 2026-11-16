@@ -22,6 +22,7 @@ import PrintIcon from '@mui/icons-material/Print';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useOrg } from '@/context/OrgContext';
+import { useI18n } from '@/i18n/I18nContext';
 
 interface CustomerLedgerModalProps {
   open: boolean;
@@ -34,6 +35,7 @@ export const CustomerLedgerModal: React.FC<CustomerLedgerModalProps> = ({
   onClose,
   customer,
 }) => {
+  const { t } = useI18n();
   const { currentOrg, formatCurrency } = useOrg();
   const orgId = currentOrg?.id;
 
@@ -70,15 +72,14 @@ export const CustomerLedgerModal: React.FC<CustomerLedgerModalProps> = ({
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <Typography variant="h6" sx={{ fontWeight: 800 }}>
-            Customer Statement: {customer?.name}
+            {t("Customer Statement:")}{customer?.name}
           </Typography>
           <Typography variant="caption" color="text.secondary">
             Phone: {customer?.phone || 'N/A'} &bull; Credit Limit: {formatCurrency(customer?.credit_limit || 0)}
           </Typography>
         </div>
         <Button startIcon={<PrintIcon />} variant="outlined" size="small" onClick={handlePrint}>
-          Print Statement
-        </Button>
+          {t("Print Statement")}</Button>
       </DialogTitle>
 
       <DialogContent dividers>
@@ -105,8 +106,7 @@ export const CustomerLedgerModal: React.FC<CustomerLedgerModalProps> = ({
 
           <Box sx={{ textAlign: 'right' }}>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              Current Outstanding Balance
-            </Typography>
+              {t("Current Outstanding Balance")}</Typography>
             <Typography variant="h6" sx={{ fontWeight: 800, color: '#d97706' }}>
               {formatCurrency(customer?.current_balance || 0)}
             </Typography>
@@ -117,20 +117,19 @@ export const CustomerLedgerModal: React.FC<CustomerLedgerModalProps> = ({
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Date</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Ref #</TableCell>
-                <TableCell align="right">Debit (+Sale)</TableCell>
-                <TableCell align="right">Credit (-Paid)</TableCell>
-                <TableCell align="right">Running Balance</TableCell>
+                <TableCell>{t("Date")}</TableCell>
+                <TableCell>{t("Type")}</TableCell>
+                <TableCell>{t("Ref #")}</TableCell>
+                <TableCell align="right">{t("Debit (+Sale)")}</TableCell>
+                <TableCell align="right">{t("Credit (-Paid)")}</TableCell>
+                <TableCell align="right">{t("Running Balance")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {/* Opening Balance Row */}
               <TableRow sx={{ bgcolor: '#f8fafc' }}>
                 <TableCell colSpan={3} sx={{ fontWeight: 600 }}>
-                  Opening Balance
-                </TableCell>
+                  {t("Opening Balance")}</TableCell>
                 <TableCell align="right">-</TableCell>
                 <TableCell align="right">-</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700 }}>
@@ -177,8 +176,7 @@ export const CustomerLedgerModal: React.FC<CustomerLedgerModalProps> = ({
               ) : (
                 <TableRow>
                   <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
-                    No transactions found for this customer.
-                  </TableCell>
+                    {t("No transactions found for this customer.")}</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -188,8 +186,7 @@ export const CustomerLedgerModal: React.FC<CustomerLedgerModalProps> = ({
 
       <DialogActions sx={{ px: 3, py: 2 }}>
         <Button onClick={onClose} variant="contained" sx={{ bgcolor: '#0f172a' }}>
-          Close
-        </Button>
+          {t("Close")}</Button>
       </DialogActions>
     </Dialog>
   );

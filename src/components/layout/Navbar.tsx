@@ -26,6 +26,8 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import { useAuth } from '@/context/AuthContext';
 import { useOrg } from '@/context/OrgContext';
 import { useNavigate } from 'react-router-dom';
+import { LanguageSwitcher } from '@/i18n/LanguageSwitcher';
+import { useI18n } from '@/i18n/I18nContext';
 
 interface NavbarProps {
   onToggleSidebar: () => void;
@@ -35,6 +37,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const { user, profile, signOut } = useAuth();
   const { currentOrg, organizations, switchOrg, role } = useOrg();
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
@@ -138,7 +141,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               display: { xs: 'none', sm: 'inline-flex' },
             }}
           >
-            New Sale
+            {t('New Sale')}
           </Button>
 
           {/* User Profile Avatar */}
@@ -160,13 +163,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
           >
             <Box sx={{ px: 2, py: 1.5 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                {profile?.full_name || 'ShopFlow User'}
+                {profile?.full_name || t('ShopFlow User')}
               </Typography>
               <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
                 {user?.email}
               </Typography>
             </Box>
             <Divider />
+
+            <Box sx={{ px: 2, py: 1.5 }}><LanguageSwitcher compact /></Box>
 
             <MenuItem
               onClick={() => {
@@ -177,7 +182,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               <ListItemIcon>
                 <SettingsIcon fontSize="small" />
               </ListItemIcon>
-              Org Settings
+              {t('Org Settings')}
             </MenuItem>
 
             <MenuItem
@@ -189,7 +194,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               <ListItemIcon>
                 <AddBusinessIcon fontSize="small" />
               </ListItemIcon>
-              New Organization
+              {t('New Organization')}
             </MenuItem>
 
             {profile?.is_platform_admin && (
@@ -203,7 +208,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                 <ListItemIcon>
                   <AdminPanelSettingsIcon fontSize="small" sx={{ color: '#dc2626' }} />
                 </ListItemIcon>
-                Super-Admin Portal
+                {t('Super-Admin Portal')}
               </MenuItem>
             )}
 
@@ -212,7 +217,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               <ListItemIcon>
                 <LogoutIcon fontSize="small" color="error" />
               </ListItemIcon>
-              Sign Out
+              {t('Sign Out')}
             </MenuItem>
           </Menu>
         </Box>

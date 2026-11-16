@@ -2,8 +2,11 @@ import React from 'react';
 import { Box, Paper, Typography } from '@mui/material';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import { Outlet, Link } from 'react-router-dom';
+import { LanguageSwitcher } from '@/i18n/LanguageSwitcher';
+import { useI18n } from '@/i18n/I18nContext';
 
 export const AuthLayout: React.FC = () => {
+  const { t } = useI18n();
   return (
     <Box
       sx={{
@@ -16,6 +19,7 @@ export const AuthLayout: React.FC = () => {
         p: 2,
       }}
     >
+      <Box sx={{ position: 'absolute', right: 20, top: 20 }}><LanguageSwitcher /></Box>
       <Box
         component={Link}
         to="/"
@@ -49,7 +53,7 @@ export const AuthLayout: React.FC = () => {
       </Paper>
 
       <Typography variant="body2" color="text.secondary" sx={{ mt: 3, textAlign: 'center' }}>
-        &copy; {new Date().getFullYear()} ShopFlow Cloud SaaS. All rights reserved.
+        &copy; {new Date().getFullYear()} ShopFlow Cloud SaaS. {t('All rights reserved.')}
       </Typography>
     </Box>
   );

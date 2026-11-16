@@ -32,6 +32,10 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import LogoutIcon from '@mui/icons-material/Logout';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import SecurityIcon from '@mui/icons-material/Security';
+import CampaignIcon from '@mui/icons-material/Campaign';
+import TuneIcon from '@mui/icons-material/Tune';
+import { LanguageSwitcher } from '@/i18n/LanguageSwitcher';
+import { useI18n } from '@/i18n/I18nContext';
 import { Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 
@@ -44,10 +48,12 @@ interface AdminNavItem {
 const adminNavItems: AdminNavItem[] = [
   { title: 'Organizations & Shops', path: '/admin/organizations', icon: <BusinessIcon fontSize="small" /> },
   { title: 'Subscription Approvals', path: '/admin/subscriptions', icon: <LoyaltyIcon fontSize="small" /> },
+  { title: 'Plans & Features', path: '/admin/plans', icon: <TuneIcon fontSize="small" /> },
   { title: 'Global Platform Users', path: '/admin/users', icon: <PeopleIcon fontSize="small" /> },
   { title: 'Usage Analytics', path: '/admin/analytics', icon: <AssessmentIcon fontSize="small" /> },
   { title: 'Platform Audit Logs', path: '/admin/audit-logs', icon: <ReceiptLongIcon fontSize="small" /> },
   { title: 'Automations & Crons', path: '/admin/automations', icon: <AutoAwesomeIcon fontSize="small" /> },
+  { title: 'ShopFlow Marketing', path: '/admin/marketing', icon: <CampaignIcon fontSize="small" /> },
 ];
 
 export const AdminLayout: React.FC = () => {
@@ -58,6 +64,7 @@ export const AdminLayout: React.FC = () => {
 
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useI18n();
   const { user, profile, loading, signOut } = useAuth();
 
   const handleToggleSidebar = () => {
@@ -115,8 +122,7 @@ export const AdminLayout: React.FC = () => {
       >
         <SecurityIcon sx={{ fontSize: 64, color: '#ef4444', mb: 2 }} />
         <Typography variant="h5" sx={{ fontWeight: 800, color: '#ffffff', mb: 1 }}>
-          Platform Administrator Access Required
-        </Typography>
+          {t("Platform Administrator Access Required")}</Typography>
         <Typography variant="body2" sx={{ color: '#94a3b8', maxWidth: 460, mb: 3 }}>
           Your current account ({user.email}) does not possess master platform privileges. You can return to your wholesale shop workspace.
         </Typography>
@@ -126,8 +132,7 @@ export const AdminLayout: React.FC = () => {
           startIcon={<StorefrontIcon />}
           sx={{ borderRadius: 2, px: 3, py: 1.2, fontWeight: 700, bgcolor: '#0284c7' }}
         >
-          Return to Shop Dashboard
-        </Button>
+          {t("Return to Shop Dashboard")}</Button>
       </Box>
     );
   }
@@ -200,8 +205,7 @@ export const AdminLayout: React.FC = () => {
             '&:hover': { borderColor: '#38bdf8', bgcolor: 'rgba(2, 132, 199, 0.1)' },
           }}
         >
-          Switch to Shop View
-        </Button>
+          {t("Switch to Shop View")}</Button>
         <Typography variant="caption" sx={{ display: 'block', color: '#475569', mt: 1.5, fontSize: 11, textAlign: 'center' }}>
           ShopFlow Platform Engine v1.0
         </Typography>
@@ -235,11 +239,9 @@ export const AdminLayout: React.FC = () => {
               <AdminPanelSettingsIcon sx={{ color: '#ef4444', fontSize: 30 }} />
               <div>
                 <Typography variant="h6" sx={{ fontWeight: 800, color: '#ffffff', lineHeight: 1.2 }}>
-                  ShopFlow Master Admin
-                </Typography>
+                  {t("ShopFlow Master Admin")}</Typography>
                 <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: 11 }}>
-                  Cross-Tenant Cloud Governance
-                </Typography>
+                  {t("Cross-Tenant Cloud Governance")}</Typography>
               </div>
             </Box>
 
@@ -259,6 +261,7 @@ export const AdminLayout: React.FC = () => {
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <LanguageSwitcher compact />
             <Button
               variant="text"
               size="small"
@@ -266,7 +269,7 @@ export const AdminLayout: React.FC = () => {
               onClick={() => navigate('/app/dashboard')}
               sx={{ color: '#94a3b8', fontSize: 12, display: { xs: 'none', sm: 'inline-flex' } }}
             >
-              Tenant View
+              {t('Tenant View')}
             </Button>
 
             {/* Admin Avatar & Dropdown */}
@@ -288,7 +291,7 @@ export const AdminLayout: React.FC = () => {
             >
               <Box sx={{ px: 2, py: 1.5 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#ffffff' }}>
-                  {profile?.full_name || 'Super Administrator'}
+                  {profile?.full_name || t('Super Administrator')}
                 </Typography>
                 <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block' }} noWrap>
                   {user?.email}
@@ -305,7 +308,7 @@ export const AdminLayout: React.FC = () => {
                 <ListItemIcon sx={{ color: '#38bdf8' }}>
                   <StorefrontIcon fontSize="small" />
                 </ListItemIcon>
-                Switch to Shop App
+                {t('Switch to Shop App')}
               </MenuItem>
 
               <Divider sx={{ borderColor: '#1e293b' }} />
@@ -314,7 +317,7 @@ export const AdminLayout: React.FC = () => {
                 <ListItemIcon sx={{ color: '#ef4444' }}>
                   <LogoutIcon fontSize="small" />
                 </ListItemIcon>
-                Sign Out of Admin
+                {t('Sign Out of Admin')}
               </MenuItem>
             </Menu>
           </Box>

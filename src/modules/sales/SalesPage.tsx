@@ -21,6 +21,7 @@ import {
   DialogActions,
   CircularProgress,
   Divider,
+  Alert,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PrintIcon from '@mui/icons-material/Print';
@@ -31,6 +32,9 @@ import { supabase } from '@/lib/supabase';
 import { useOrg } from '@/context/OrgContext';
 import { useNotification } from '@/context/NotificationContext';
 import { InvoiceReceiptModal } from './InvoiceReceiptModal';
+import { useEntitlements } from '@/modules/subscription/useEntitlements';
+import { useNavigate } from 'react-router-dom';
+import { useI18n } from '@/i18n/I18nContext';
 
 interface CartItem {
   productId: string;
@@ -42,9 +46,14 @@ interface CartItem {
 }
 
 export const SalesPage: React.FC = () => {
+  const { t } = useI18n();
   const { currentOrg, formatCurrency } = useOrg();
   const { showSuccess, showError } = useNotification();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { data: entitlements = [] } = useEntitlements();
+  const canUseCredit = entitlements.some((item) => item.feature_key === 'credit_sales' && item.is_allowed);
+  const canUsePartial = entitlements.some((item) => item.feature_key === 'partial_payments' && item.is_allowed);
   const orgId = currentOrg?.id;
 
   // POS State
@@ -302,11 +311,9 @@ export const SalesPage: React.FC = () => {
     <Box>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 800 }}>
-          Sales Register & Invoicing
-        </Typography>
+          {t("Sales Register & Invoicing")}</Typography>
         <Typography variant="body2" color="text.secondary">
-          Fast checkout, stock-aware cart, multi-payment options, and invoice printing.
-        </Typography>
+          {t("Fast checkout, stock-aware cart, multi-payment options, and invoice printing.")}</Typography>
       </Box>
 
       {/* POS Register Section */}
@@ -315,8 +322,7 @@ export const SalesPage: React.FC = () => {
         <Grid item xs={12} md={7}>
           <Paper elevation={0} sx={{ p: 2.5, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff', height: '100%' }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
-              Available Products for Sale
-            </Typography>
+              {t("Available Products for Sale")}</Typography>
 
             <Grid container spacing={1.5}>
               {products.map((p: any) => (
@@ -356,20 +362,19 @@ export const SalesPage: React.FC = () => {
         <Grid item xs={12} md={5}>
           <Paper elevation={0} sx={{ p: 2.5, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
-              Current Cart
-            </Typography>
+              {t("Current Cart")}</Typography>
 
             {/* Customer Selector */}
             <TextField
               fullWidth
               size="small"
               select
-              label="Select Customer (Optional for Cash)"
+              label={t("Select Customer (Optional for Cash)")}
               value={selectedCustomerId}
               onChange={(e) => setSelectedCustomerId(e.target.value)}
               sx={{ mb: 2 }}
             >
-              <MenuItem value="">-- Walk-in Customer --</MenuItem>
+              <MenuItem value="">{t("-- Walk-in Customer --")}</MenuItem>
               {customers.map((c: any) => (
                 <MenuItem key={c.customer_id} value={c.customer_id}>
                   {c.customer_name} (Bal: {formatCurrency(c.current_balance)})
@@ -388,8 +393,7 @@ export const SalesPage: React.FC = () => {
                           {item.name}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {formatCurrency(item.unitPrice)} each
-                        </Typography>
+                          {formatCurrency(item.unitPrice)} {t("each")}</Typography>
                       </TableCell>
                       <TableCell align="center" sx={{ p: 1, width: 80 }}>
                         <TextField
@@ -413,8 +417,7 @@ export const SalesPage: React.FC = () => {
                   {cart.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={4} align="center" sx={{ py: 3, color: 'text.secondary' }}>
-                        Cart is empty. Click a product to add.
-                      </TableCell>
+                        {t("Cart is empty. Click a product to add.")}</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -425,12 +428,12 @@ export const SalesPage: React.FC = () => {
 
             {/* Calculation summary */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="body2" color="text.secondary">Subtotal:</Typography>
+              <Typography variant="body2" color="text.secondary">{t("Subtotal:")}</Typography>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatCurrency(subtotal)}</Typography>
             </Box>
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-              <Typography variant="body2" color="text.secondary">Discount (MMK):</Typography>
+              <Typography variant="body2" color="text.secondary">{t("Discount (MMK):")}</Typography>
               <TextField
                 type="number"
                 size="small"
@@ -442,14 +445,13 @@ export const SalesPage: React.FC = () => {
             </Box>
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Total Due:</Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{t("Total Due:")}</Typography>
               <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a' }}>{formatCurrency(totalDue)}</Typography>
             </Box>
 
             {/* Payment Options */}
             <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b', display: 'block', mb: 1 }}>
-              PAYMENT TERMS
-            </Typography>
+              {t("PAYMENT TERMS")}</Typography>
 
             <Grid container spacing={1} sx={{ mb: 2 }}>
               <Grid item xs={4}>
@@ -460,39 +462,44 @@ export const SalesPage: React.FC = () => {
                   onClick={() => setPaymentType('cash')}
                   sx={{ borderRadius: 2, fontSize: 12 }}
                 >
-                  Full Cash
-                </Button>
+                  {t("Full Cash")}</Button>
               </Grid>
               <Grid item xs={4}>
                 <Button
                   fullWidth
                   size="small"
                   variant={paymentType === 'partial' ? 'contained' : 'outlined'}
+                  disabled={!canUsePartial}
                   onClick={() => setPaymentType('partial')}
                   sx={{ borderRadius: 2, fontSize: 12 }}
                 >
-                  Partial Paid
-                </Button>
+                  {t("Partial Paid")}</Button>
               </Grid>
               <Grid item xs={4}>
                 <Button
                   fullWidth
                   size="small"
                   variant={paymentType === 'credit' ? 'contained' : 'outlined'}
+                  disabled={!canUseCredit}
                   onClick={() => setPaymentType('credit')}
                   sx={{ borderRadius: 2, fontSize: 12 }}
                 >
-                  Full Credit
-                </Button>
+                  {t("Full Credit")}</Button>
               </Grid>
             </Grid>
+
+            {(!canUseCredit || !canUsePartial) && <Box sx={{ mb: 2 }}>
+              <Alert severity="info" action={<Button size="small" color="inherit" onClick={() => navigate('/app/subscription')}>{t("Compare plans")}</Button>}>
+                {!canUseCredit && !canUsePartial ? 'Credit sales and partial payments' : !canUseCredit ? 'Credit sales' : 'Partial payments'} are available on higher plans.
+              </Alert>
+            </Box>}
 
             {paymentType === 'partial' && (
               <TextField
                 fullWidth
                 size="small"
                 type="number"
-                label="Amount Collected Now (MMK)"
+                label={t("Amount Collected Now (MMK)")}
                 value={paidAmount}
                 onChange={(e) => setPaidAmount(Number(e.target.value))}
                 sx={{ mb: 2 }}
@@ -504,15 +511,15 @@ export const SalesPage: React.FC = () => {
                 fullWidth
                 size="small"
                 select
-                label="Payment Method"
+                label={t("Payment Method")}
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 sx={{ mb: 2 }}
               >
-                <MenuItem value="cash">Cash</MenuItem>
+                <MenuItem value="cash">{t("Cash")}</MenuItem>
                 <MenuItem value="kbz_pay">KBZPay</MenuItem>
                 <MenuItem value="wave_pay">WavePay</MenuItem>
-                <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
+                <MenuItem value="bank_transfer">{t("Bank Transfer")}</MenuItem>
               </TextField>
             )}
 
@@ -534,20 +541,19 @@ export const SalesPage: React.FC = () => {
       {/* Sales Invoices History */}
       <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
         <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-          Sales Invoices & Reversal History
-        </Typography>
+          {t("Sales Invoices & Reversal History")}</Typography>
 
         <TableContainer>
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Invoice #</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell>Customer</TableCell>
-                <TableCell align="right">Total</TableCell>
-                <TableCell align="right">Paid</TableCell>
-                <TableCell align="center">Payment</TableCell>
-                <TableCell align="center">Status</TableCell>
+                <TableCell>{t("Invoice #")}</TableCell>
+                <TableCell>{t("Date")}</TableCell>
+                <TableCell>{t("Customer")}</TableCell>
+                <TableCell align="right">{t("Total")}</TableCell>
+                <TableCell align="right">{t("Paid")}</TableCell>
+                <TableCell align="center">{t("Payment")}</TableCell>
+                <TableCell align="center">{t("Status")}</TableCell>
                 <TableCell align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -629,8 +635,7 @@ export const SalesPage: React.FC = () => {
               ) : (
                 <TableRow>
                   <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                    No sales recorded.
-                  </TableCell>
+                    {t("No sales recorded.")}</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -666,8 +671,7 @@ export const SalesPage: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setVoidDialogOpen(false)} disabled={voiding}>
-            Cancel
-          </Button>
+            {t("Cancel")}</Button>
           <Button
             variant="contained"
             color="error"

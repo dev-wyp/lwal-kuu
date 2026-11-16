@@ -18,6 +18,8 @@ import * as z from 'zod';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useNotification } from '@/context/NotificationContext';
+import { captureAttributionFromSearch } from '@/modules/marketing/lib/utm';
+import { useI18n } from '@/i18n/I18nContext';
 
 const registerSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters'),
@@ -35,8 +37,13 @@ export const RegisterPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { showSuccess } = useNotification();
+  const { t } = useI18n();
 
   const selectedPlan = searchParams.get('plan') || 'starter';
+
+  React.useEffect(() => {
+    captureAttributionFromSearch(window.location.search);
+  }, []);
 
   const {
     register,
@@ -68,11 +75,11 @@ export const RegisterPage: React.FC = () => {
       }
 
       if (authData.user) {
-        showSuccess('Account created! Now create your shop organization.');
+        showSuccess(t('Account created! Now create your shop organization.'));
         navigate(`/onboarding?plan=${selectedPlan}`);
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+      const message = err instanceof Error ? t(err.message) : t('An unexpected error occurred');
       setErrorMsg(message);
     } finally {
       setLoading(false);
@@ -82,10 +89,10 @@ export const RegisterPage: React.FC = () => {
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
       <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5, color: '#0f172a' }}>
-        Create Your Account
+        {t('Create Your Account')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Start your 14-day free trial on the {selectedPlan.toUpperCase()} plan.
+        {t('Start your 14-day free trial on the')} {selectedPlan.toUpperCase()} {t('plan.')}
       </Typography>
 
       {errorMsg && (
@@ -96,52 +103,52 @@ export const RegisterPage: React.FC = () => {
 
       <TextField
         fullWidth
-        label="Full Name"
+        label={t('Full Name')}
         margin="normal"
         size="small"
         autoFocus
         {...register('fullName')}
         error={Boolean(errors.fullName)}
-        helperText={errors.fullName?.message}
+        helperText={errors.fullName?.message ? t(errors.fullName.message) : undefined}
       />
 
       <TextField
         fullWidth
-        label="Phone Number (e.g. 09123456789)"
+        label={t('Phone Number (e.g. 09123456789)')}
         margin="normal"
         size="small"
         {...register('phone')}
         error={Boolean(errors.phone)}
-        helperText={errors.phone?.message}
+        helperText={errors.phone?.message ? t(errors.phone.message) : undefined}
       />
 
       <TextField
         fullWidth
-        label="Email Address"
+        label={t('Email Address')}
         type="email"
         margin="normal"
         size="small"
         autoComplete="email"
         {...register('email')}
         error={Boolean(errors.email)}
-        helperText={errors.email?.message}
+        helperText={errors.email?.message ? t(errors.email.message) : undefined}
       />
 
       <TextField
         fullWidth
-        label="Password"
+        label={t('Password')}
         type={showPassword ? 'text' : 'password'}
         margin="normal"
         size="small"
         autoComplete="new-password"
         {...register('password')}
         error={Boolean(errors.password)}
-        helperText={errors.password?.message}
+        helperText={errors.password?.message ? t(errors.password.message) : undefined}
         InputProps={{
           endAdornment: (
             <InputAdornment position="end">
               <IconButton
-                aria-label="toggle password visibility"
+                aria-label={t('toggle password visibility')}
                 onClick={() => setShowPassword(!showPassword)}
                 edge="end"
                 size="small"
@@ -169,14 +176,14 @@ export const RegisterPage: React.FC = () => {
           '&:hover': { bgcolor: '#0369a1' },
         }}
       >
-        {loading ? <CircularProgress size={24} sx={{ color: '#ffffff' }} /> : 'Continue to Organization Setup'}
+        {loading ? <CircularProgress size={24} sx={{ color: '#ffffff' }} /> : t('Continue to Organization Setup')}
       </Button>
 
       <Box sx={{ textAlign: 'center' }}>
         <Typography variant="body2" color="text.secondary">
-          Already registered?{' '}
+          {t('Already registered?')}{' '}
           <MuiLink component={Link} to="/login" sx={{ fontWeight: 600, color: '#0284c7' }}>
-            Sign in
+            {t('Sign In')}
           </MuiLink>
         </Typography>
       </Box>

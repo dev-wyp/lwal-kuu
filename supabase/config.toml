@@ -30,3 +30,15 @@ enable_signup = true
 enabled = true
 double_confirm_changes = true
 enable_confirmations = false
+
+[functions.marketing-ai]
+verify_jwt = true
+
+[functions.marketing-oauth]
+verify_jwt = false
+
+[functions.marketing-publish]
+verify_jwt = false
+
+[functions.marketing-jobs]
+verify_jwt = false

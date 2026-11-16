@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { Database } from '@/types/database.types';
@@ -21,8 +21,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const profileRequestId = useRef(0);
 
   const fetchProfile = useCallback(async (userId: string) => {
+    const requestId = ++profileRequestId.current;
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -30,7 +32,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .eq('id', userId)
         .single();
 
-      if (!error && data) {
+      if (!error && data && requestId === profileRequestId.current) {
         setProfile(data);
       }
     } catch (err) {
@@ -45,29 +47,53 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [user, fetchProfile]);
 
   useEffect(() => {
-    // 1. Check active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      setLoading(false);
-    });
+    let active = true;
+    let currentUserId: string | null = null;
+    const profileTimers = new Set<ReturnType<typeof setTimeout>>();
 
-    // 2. Subscribe to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfile(session.user.id);
-      } else {
+    // Keep this callback synchronous. Supabase auth callbacks run while the
+    // client holds its auth lock; making another Supabase request here can
+    // block all later requests when the browser tab resumes.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      const nextUser = nextSession?.user ?? null;
+      const nextUserId = nextUser?.id ?? null;
+
+      if (event === 'TOKEN_REFRESHED' && nextUserId === currentUserId) {
+        // Tokens change during tab resume, but the signed-in identity and app
+        // data have not. Avoid restarting auth/profile/org loading for this.
+        setSession(nextSession);
+        return;
+      }
+
+      const userChanged = currentUserId !== nextUserId;
+      currentUserId = nextUserId;
+      setSession(nextSession);
+      setUser(nextUser);
+
+      if (!nextUser) {
+        profileRequestId.current += 1;
         setProfile(null);
+      } else {
+        if (userChanged) {
+          profileRequestId.current += 1;
+          setProfile(null);
+        }
+
+        // Defer the query until after Supabase has released its auth lock.
+        if (event !== 'TOKEN_REFRESHED') {
+          const timer = setTimeout(() => {
+            profileTimers.delete(timer);
+            if (active) void fetchProfile(nextUser.id);
+          }, 0);
+          profileTimers.add(timer);
+        }
       }
       setLoading(false);
     });
 
     return () => {
+      active = false;
+      profileTimers.forEach(clearTimeout);
       subscription.unsubscribe();
     };
   }, [fetchProfile]);

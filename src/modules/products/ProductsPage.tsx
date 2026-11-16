@@ -28,8 +28,10 @@ import { supabase } from '@/lib/supabase';
 import { useOrg } from '@/context/OrgContext';
 import { useNotification } from '@/context/NotificationContext';
 import { ProductModal } from './ProductModal';
+import { useI18n } from '@/i18n/I18nContext';
 
 export const ProductsPage: React.FC = () => {
+  const { t } = useI18n();
   const { currentOrg, formatCurrency } = useOrg();
   const { showSuccess, showError } = useNotification();
   const queryClient = useQueryClient();
@@ -208,11 +210,9 @@ export const ProductsPage: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
-            Product Catalog
-          </Typography>
+            {t("Product Catalog")}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Manage wholesale products, inventory pricing, and stock thresholds.
-          </Typography>
+            {t("Manage wholesale products, inventory pricing, and stock thresholds.")}</Typography>
         </div>
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
           <Button
@@ -233,8 +233,7 @@ export const ProductsPage: React.FC = () => {
             startIcon={importing ? <CircularProgress size={16} /> : <UploadFileIcon />}
             sx={{ borderRadius: 2, fontWeight: 600, borderColor: '#cbd5e1', color: '#0284c7' }}
           >
-            Import CSV
-            <input type="file" accept=".csv" hidden onChange={handleFileUpload} />
+            {t("Import CSV")}<input type="file" accept=".csv" hidden onChange={handleFileUpload} />
           </Button>
 
           <Button
@@ -243,8 +242,7 @@ export const ProductsPage: React.FC = () => {
             onClick={handleOpenAdd}
             sx={{ borderRadius: 2, bgcolor: '#0f172a', fontWeight: 600 }}
           >
-            Add Product
-          </Button>
+            {t("Add Product")}</Button>
         </Box>
       </Box>
 
@@ -253,7 +251,7 @@ export const ProductsPage: React.FC = () => {
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           <TextField
             size="small"
-            placeholder="Search by SKU or Name..."
+            placeholder={t("Search by SKU or Name...")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             sx={{ minWidth: 260 }}
@@ -269,12 +267,12 @@ export const ProductsPage: React.FC = () => {
           <TextField
             size="small"
             select
-            label="Category"
+            label={t("Category")}
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
             sx={{ minWidth: 180 }}
           >
-            <MenuItem value="">All Categories</MenuItem>
+            <MenuItem value="">{t("All Categories")}</MenuItem>
             {categories.map((c) => (
               <MenuItem key={c.id} value={c.id}>
                 {c.name}
@@ -290,13 +288,13 @@ export const ProductsPage: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>SKU</TableCell>
-                <TableCell>Product Name</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell>Unit</TableCell>
-                <TableCell align="right">Cost Price</TableCell>
-                <TableCell align="right">Sale Price</TableCell>
-                <TableCell align="center">Stock on Hand</TableCell>
+                <TableCell>{t("SKU")}</TableCell>
+                <TableCell>{t("Product Name")}</TableCell>
+                <TableCell>{t("Category")}</TableCell>
+                <TableCell>{t("Unit")}</TableCell>
+                <TableCell align="right">{t("Cost Price")}</TableCell>
+                <TableCell align="right">{t("Sale Price")}</TableCell>
+                <TableCell align="center">{t("Stock on Hand")}</TableCell>
                 <TableCell align="center">Actions</TableCell>
               </TableRow>
             </TableHead>

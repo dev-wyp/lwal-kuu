@@ -24,8 +24,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useOrg } from '@/context/OrgContext';
 import { useNotification } from '@/context/NotificationContext';
+import { useI18n } from '@/i18n/I18nContext';
 
 export const CategoriesPage: React.FC = () => {
+  const { t } = useI18n();
   const { currentOrg } = useOrg();
   const { showSuccess, showError } = useNotification();
   const queryClient = useQueryClient();
@@ -99,11 +101,9 @@ export const CategoriesPage: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
-            Product Categories
-          </Typography>
+            {t("Product Categories")}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Organize inventory items into logical classifications.
-          </Typography>
+            {t("Organize inventory items into logical classifications.")}</Typography>
         </div>
         <Button
           variant="contained"
@@ -111,8 +111,7 @@ export const CategoriesPage: React.FC = () => {
           onClick={handleOpenAdd}
           sx={{ borderRadius: 2, bgcolor: '#0f172a', fontWeight: 600 }}
         >
-          Add Category
-        </Button>
+          {t("Add Category")}</Button>
       </Box>
 
       <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
@@ -120,8 +119,8 @@ export const CategoriesPage: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Category Name</TableCell>
-                <TableCell>Created Date</TableCell>
+                <TableCell>{t("Category Name")}</TableCell>
+                <TableCell>{t("Created Date")}</TableCell>
                 <TableCell align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -147,8 +146,7 @@ export const CategoriesPage: React.FC = () => {
               ) : (
                 <TableRow>
                   <TableCell colSpan={3} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                    No categories created yet.
-                  </TableCell>
+                    {t("No categories created yet.")}</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -165,7 +163,7 @@ export const CategoriesPage: React.FC = () => {
             autoFocus
             fullWidth
             size="small"
-            label="Category Name"
+            label={t("Category Name")}
             placeholder="e.g. Edible Oils, Beverages, Cosmetics"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -173,8 +171,7 @@ export const CategoriesPage: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setModalOpen(false)} disabled={saving}>
-            Cancel
-          </Button>
+            {t("Cancel")}</Button>
           <Button
             variant="contained"
             onClick={handleSave}

@@ -28,6 +28,7 @@ import { useNotification } from '@/context/NotificationContext';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { useI18n } from '@/i18n/I18nContext';
 
 const expenseSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -41,6 +42,7 @@ const expenseSchema = z.object({
 type ExpenseFormData = z.infer<typeof expenseSchema>;
 
 export const ExpensesPage: React.FC = () => {
+  const { t } = useI18n();
   const { currentOrg, formatCurrency } = useOrg();
   const { showSuccess, showError } = useNotification();
   const queryClient = useQueryClient();
@@ -155,11 +157,9 @@ export const ExpensesPage: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
-            Operational Expenses
-          </Typography>
+            {t("Operational Expenses")}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Track overhead costs, logistics, utilities, and daily petty cash.
-          </Typography>
+            {t("Track overhead costs, logistics, utilities, and daily petty cash.")}</Typography>
         </div>
         <Button
           variant="contained"
@@ -167,15 +167,13 @@ export const ExpensesPage: React.FC = () => {
           onClick={handleOpenAdd}
           sx={{ borderRadius: 2, bgcolor: '#0f172a', fontWeight: 600 }}
         >
-          Add Expense
-        </Button>
+          {t("Add Expense")}</Button>
       </Box>
 
       {/* Summary Banner */}
       <Paper elevation={0} sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          Total Recorded Expenses:
-        </Typography>
+          {t("Total Recorded Expenses:")}</Typography>
         <Typography variant="h5" sx={{ fontWeight: 800, color: '#ef4444' }}>
           {formatCurrency(totalExpenses)}
         </Typography>
@@ -187,12 +185,12 @@ export const ExpensesPage: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Date</TableCell>
-                <TableCell>Expense Title</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell>Method</TableCell>
-                <TableCell align="right">Amount</TableCell>
-                <TableCell>Notes</TableCell>
+                <TableCell>{t("Date")}</TableCell>
+                <TableCell>{t("Expense Title")}</TableCell>
+                <TableCell>{t("Category")}</TableCell>
+                <TableCell>{t("Method")}</TableCell>
+                <TableCell align="right">{t("Amount")}</TableCell>
+                <TableCell>{t("Notes")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -222,8 +220,7 @@ export const ExpensesPage: React.FC = () => {
               ) : (
                 <TableRow>
                   <TableCell colSpan={6} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                    No expenses recorded yet.
-                  </TableCell>
+                    {t("No expenses recorded yet.")}</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -233,7 +230,7 @@ export const ExpensesPage: React.FC = () => {
 
       {/* Add Expense Modal */}
       <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Record Operational Expense</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>{t("Record Operational Expense")}</DialogTitle>
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogContent dividers>
             <Grid container spacing={2}>
@@ -241,7 +238,7 @@ export const ExpensesPage: React.FC = () => {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Expense Description / Title"
+                  label={t("Expense Description / Title")}
                   placeholder="e.g. November Shop Electricity Bill"
                   {...register('title')}
                   error={Boolean(errors.title)}
@@ -253,7 +250,7 @@ export const ExpensesPage: React.FC = () => {
                   fullWidth
                   size="small"
                   select
-                  label="Category"
+                  label={t("Category")}
                   defaultValue={categories[0]?.id || ''}
                   {...register('categoryId')}
                   error={Boolean(errors.categoryId)}
@@ -271,7 +268,7 @@ export const ExpensesPage: React.FC = () => {
                   fullWidth
                   size="small"
                   type="number"
-                  label="Amount (MMK)"
+                  label={t("Amount (MMK)")}
                   {...register('amount')}
                   error={Boolean(errors.amount)}
                   helperText={errors.amount?.message}
@@ -282,7 +279,7 @@ export const ExpensesPage: React.FC = () => {
                   fullWidth
                   size="small"
                   type="date"
-                  label="Expense Date"
+                  label={t("Expense Date")}
                   {...register('expenseDate')}
                   InputLabelProps={{ shrink: true }}
                 />
@@ -292,14 +289,14 @@ export const ExpensesPage: React.FC = () => {
                   fullWidth
                   size="small"
                   select
-                  label="Payment Method"
+                  label={t("Payment Method")}
                   defaultValue="cash"
                   {...register('paymentMethod')}
                 >
-                  <MenuItem value="cash">Cash</MenuItem>
+                  <MenuItem value="cash">{t("Cash")}</MenuItem>
                   <MenuItem value="kbz_pay">KBZPay</MenuItem>
                   <MenuItem value="wave_pay">WavePay</MenuItem>
-                  <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
+                  <MenuItem value="bank_transfer">{t("Bank Transfer")}</MenuItem>
                 </TextField>
               </Grid>
               <Grid item xs={12}>
@@ -316,8 +313,7 @@ export const ExpensesPage: React.FC = () => {
           </DialogContent>
           <DialogActions sx={{ px: 3, py: 2 }}>
             <Button onClick={() => setModalOpen(false)} disabled={isSubmitting}>
-              Cancel
-            </Button>
+              {t("Cancel")}</Button>
             <Button
               type="submit"
               variant="contained"

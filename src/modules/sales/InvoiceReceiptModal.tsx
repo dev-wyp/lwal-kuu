@@ -18,6 +18,7 @@ import {
 import PrintIcon from '@mui/icons-material/Print';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import { useOrg } from '@/context/OrgContext';
+import { useI18n } from '@/i18n/I18nContext';
 
 interface InvoiceReceiptModalProps {
   open: boolean;
@@ -30,6 +31,7 @@ export const InvoiceReceiptModal: React.FC<InvoiceReceiptModalProps> = ({
   onClose,
   sale,
 }) => {
+  const { t } = useI18n();
   const { currentOrg, settings, formatCurrency } = useOrg();
 
   if (!sale) return null;
@@ -42,11 +44,9 @@ export const InvoiceReceiptModal: React.FC<InvoiceReceiptModalProps> = ({
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h6" sx={{ fontWeight: 800 }}>
-          Tax Invoice / Receipt
-        </Typography>
+          {t("Tax Invoice / Receipt")}</Typography>
         <Button startIcon={<PrintIcon />} variant="contained" size="small" onClick={handlePrint}>
-          Print
-        </Button>
+          {t("Print")}</Button>
       </DialogTitle>
 
       <DialogContent dividers sx={{ p: 4 }}>
@@ -92,10 +92,10 @@ export const InvoiceReceiptModal: React.FC<InvoiceReceiptModalProps> = ({
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Item</TableCell>
-                <TableCell align="center">Qty</TableCell>
+                <TableCell>{t("Item")}</TableCell>
+                <TableCell align="center">{t("Qty")}</TableCell>
                 <TableCell align="right">Price</TableCell>
-                <TableCell align="right">Total</TableCell>
+                <TableCell align="right">{t("Total")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -113,25 +113,25 @@ export const InvoiceReceiptModal: React.FC<InvoiceReceiptModalProps> = ({
 
         <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-end' }}>
           <Box sx={{ display: 'flex', gap: 4 }}>
-            <Typography variant="body2" color="text.secondary">Subtotal:</Typography>
+            <Typography variant="body2" color="text.secondary">{t("Subtotal:")}</Typography>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatCurrency(sale.subtotal)}</Typography>
           </Box>
           {Number(sale.discount_amount) > 0 && (
             <Box sx={{ display: 'flex', gap: 4 }}>
-              <Typography variant="body2" color="text.secondary">Discount:</Typography>
+              <Typography variant="body2" color="text.secondary">{t("Discount:")}</Typography>
               <Typography variant="body2" sx={{ color: '#ef4444' }}>-{formatCurrency(sale.discount_amount)}</Typography>
             </Box>
           )}
           <Box sx={{ display: 'flex', gap: 4 }}>
-            <Typography variant="h6" sx={{ fontWeight: 800 }}>Total Due:</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>{t("Total Due:")}</Typography>
             <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a' }}>{formatCurrency(sale.total_amount)}</Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 4 }}>
-            <Typography variant="body2" color="text.secondary">Amount Paid:</Typography>
+            <Typography variant="body2" color="text.secondary">{t("Amount Paid:")}</Typography>
             <Typography variant="body2" sx={{ fontWeight: 600, color: '#10b981' }}>{formatCurrency(sale.paid_amount)}</Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 4 }}>
-            <Typography variant="body2" color="text.secondary">Remaining Balance:</Typography>
+            <Typography variant="body2" color="text.secondary">{t("Remaining Balance:")}</Typography>
             <Typography variant="body2" sx={{ fontWeight: 700, color: '#d97706' }}>
               {formatCurrency(Math.max(0, Number(sale.total_amount) - Number(sale.paid_amount)))}
             </Typography>
@@ -149,8 +149,7 @@ export const InvoiceReceiptModal: React.FC<InvoiceReceiptModalProps> = ({
 
       <DialogActions sx={{ px: 3, py: 2 }}>
         <Button onClick={onClose} variant="outlined">
-          Close
-        </Button>
+          {t("Close")}</Button>
       </DialogActions>
     </Dialog>
   );

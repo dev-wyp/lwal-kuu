@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
 import { Database, UserRole } from '@/types/database.types';
@@ -26,11 +26,13 @@ const OrgContext = createContext<OrgContextType | undefined>(undefined);
 
 export const OrgProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null);
   const [membership, setMembership] = useState<OrgMember | null>(null);
   const [settings, setSettings] = useState<OrgSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastLoadedUserId = useRef<string | null>(null);
 
   const fetchOrgDetails = useCallback(async (orgId: string, userId: string) => {
     try {
@@ -62,28 +64,32 @@ export const OrgProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const refreshOrgs = useCallback(async () => {
-    if (!user) {
+    if (!userId) {
       setOrganizations([]);
       setCurrentOrg(null);
       setMembership(null);
       setSettings(null);
+      lastLoadedUserId.current = null;
       setLoading(false);
       return;
     }
 
     try {
-      setLoading(true);
+      // Keep the current app visible during background or explicit refreshes.
+      // Only show the full-screen loader for first load or user changes.
+      if (lastLoadedUserId.current !== userId) setLoading(true);
       // Fetch organizations where user is an active member
       const { data: memberRows, error: memberErr } = await supabase
         .from('organization_members')
         .select('organization_id, role')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('is_active', true);
 
       if (memberErr || !memberRows || memberRows.length === 0) {
         setOrganizations([]);
         setCurrentOrg(null);
         setMembership(null);
+        setSettings(null);
         setLoading(false);
         return;
       }
@@ -98,6 +104,8 @@ export const OrgProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (orgsErr || !orgsData) {
         setOrganizations([]);
         setCurrentOrg(null);
+        setMembership(null);
+        setSettings(null);
         setLoading(false);
         return;
       }
@@ -111,14 +119,15 @@ export const OrgProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (active) {
         setCurrentOrg(active);
         localStorage.setItem('shopflow_active_org_id', active.id);
-        await fetchOrgDetails(active.id, user.id);
+        await fetchOrgDetails(active.id, userId);
       }
     } catch (err) {
       console.error('Error refreshing organizations:', err);
     } finally {
+      lastLoadedUserId.current = userId;
       setLoading(false);
     }
-  }, [user, fetchOrgDetails]);
+  }, [userId, fetchOrgDetails]);
 
   useEffect(() => {
     refreshOrgs();

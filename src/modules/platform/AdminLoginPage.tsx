@@ -24,6 +24,7 @@ import * as z from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useNotification } from '@/context/NotificationContext';
+import { useI18n } from "@/i18n/I18nContext";
 
 const adminLoginSchema = z.object({
   email: z.string().email('Please enter a valid administrator email'),
@@ -33,6 +34,7 @@ const adminLoginSchema = z.object({
 type AdminLoginFormData = z.infer<typeof adminLoginSchema>;
 
 export const AdminLoginPage: React.FC = () => {
+  const { t } = useI18n();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -140,11 +142,9 @@ export const AdminLoginPage: React.FC = () => {
         </Box>
 
         <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5, color: '#ffffff' }}>
-          Platform Control Login
-        </Typography>
+          {t("Platform Control Login")}</Typography>
         <Typography variant="body2" sx={{ color: '#94a3b8', mb: 3 }}>
-          Master administrator portal for multi-tenant governance, organization controls, and global audit.
-        </Typography>
+          {t("Master administrator portal for multi-tenant governance, organization controls, and global audit.")}</Typography>
 
         {errorMsg && (
           <Alert severity="error" sx={{ mb: 2.5, borderRadius: 2, bgcolor: '#450a0a', color: '#fca5a5' }}>
@@ -228,8 +228,7 @@ export const AdminLoginPage: React.FC = () => {
 
           <Box sx={{ textAlign: 'center' }}>
             <Typography variant="body2" sx={{ color: '#64748b', fontSize: 13 }}>
-              Are you a wholesale shop owner or staff member?
-            </Typography>
+              {t("Are you a wholesale shop owner or staff member?")}</Typography>
             <MuiLink
               component={Link}
               to="/login"
@@ -246,8 +245,7 @@ export const AdminLoginPage: React.FC = () => {
               }}
             >
               <StorefrontIcon sx={{ fontSize: 16 }} />
-              Go to Regular Shop Login
-            </MuiLink>
+              {t("Go to Regular Shop Login")}</MuiLink>
           </Box>
         </Box>
       </Paper>

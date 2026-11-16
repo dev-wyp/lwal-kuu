@@ -24,8 +24,10 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/i18n/I18nContext';
 
 export const AdminUsersPage: React.FC = () => {
+  const { t } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
 
   // Fetch all profiles along with their organization memberships
@@ -71,11 +73,9 @@ export const AdminUsersPage: React.FC = () => {
         <PeopleIcon sx={{ fontSize: 36, color: '#6366f1' }} />
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
-            Global Platform Users
-          </Typography>
+            {t("Global Platform Users")}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Cross-tenant user directory, administrative permissions, and assigned wholesale shops.
-          </Typography>
+            {t("Cross-tenant user directory, administrative permissions, and assigned wholesale shops.")}</Typography>
         </div>
       </Box>
 
@@ -85,8 +85,7 @@ export const AdminUsersPage: React.FC = () => {
           <Card elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2.5, bgcolor: '#ffffff' }}>
             <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
-                TOTAL REGISTERED USERS
-              </Typography>
+                {t("TOTAL REGISTERED USERS")}</Typography>
               <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>
                 {isLoading ? <CircularProgress size={20} /> : totalUsers}
               </Typography>
@@ -98,8 +97,7 @@ export const AdminUsersPage: React.FC = () => {
           <Card elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2.5, bgcolor: '#ffffff' }}>
             <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
-                PLATFORM SUPER-ADMINS
-              </Typography>
+                {t("PLATFORM SUPER-ADMINS")}</Typography>
               <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, color: '#dc2626' }}>
                 {isLoading ? <CircularProgress size={20} /> : adminUsers}
               </Typography>
@@ -111,8 +109,7 @@ export const AdminUsersPage: React.FC = () => {
           <Card elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2.5, bgcolor: '#ffffff' }}>
             <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
-                SHOP TENANT MEMBERS
-              </Typography>
+                {t("SHOP TENANT MEMBERS")}</Typography>
               <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, color: '#0284c7' }}>
                 {isLoading ? <CircularProgress size={20} /> : regularUsers}
               </Typography>
@@ -144,10 +141,10 @@ export const AdminUsersPage: React.FC = () => {
             <TableHead sx={{ bgcolor: '#f8fafc' }}>
               <TableRow>
                 <TableCell sx={{ fontWeight: 700 }}>User</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Email Address</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>{t("Email Address")}</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Platform Role</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Associated Shops / Roles</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Registration Date</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>{t("Associated Shops / Roles")}</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>{t("Registration Date")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -160,8 +157,7 @@ export const AdminUsersPage: React.FC = () => {
               ) : filteredUsers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                    No users found matching your search.
-                  </TableCell>
+                    {t("No users found matching your search.")}</TableCell>
                 </TableRow>
               ) : (
                 filteredUsers.map((u: any) => {
@@ -200,8 +196,7 @@ export const AdminUsersPage: React.FC = () => {
                       <TableCell>
                         {memberships.length === 0 ? (
                           <Typography variant="caption" color="text.secondary">
-                            None (Pending Onboarding)
-                          </Typography>
+                            {t("None (Pending Onboarding)")}</Typography>
                         ) : (
                           <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
                             {memberships.map((m: any, idx: number) => (

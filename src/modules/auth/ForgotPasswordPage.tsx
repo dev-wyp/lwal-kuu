@@ -13,6 +13,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/i18n/I18nContext';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -21,6 +22,7 @@ const forgotPasswordSchema = z.object({
 type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 
 export const ForgotPasswordPage: React.FC = () => {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -48,9 +50,9 @@ export const ForgotPasswordPage: React.FC = () => {
         return;
       }
 
-      setSuccessMsg('Password reset instructions have been sent to your email.');
+      setSuccessMsg(t('Password reset instructions have been sent to your email.'));
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'An error occurred';
+      const message = err instanceof Error ? t(err.message) : t('An error occurred');
       setErrorMsg(message);
     } finally {
       setLoading(false);
@@ -60,10 +62,10 @@ export const ForgotPasswordPage: React.FC = () => {
   return (
     <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
       <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5, color: '#0f172a' }}>
-        Reset Your Password
+        {t('Reset Your Password')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Enter your registered email address to receive password reset instructions.
+        {t('Enter your registered email address to receive password reset instructions.')}
       </Typography>
 
       {errorMsg && (
@@ -80,7 +82,7 @@ export const ForgotPasswordPage: React.FC = () => {
 
       <TextField
         fullWidth
-        label="Email Address"
+        label={t('Email Address')}
         type="email"
         margin="normal"
         size="small"
@@ -88,7 +90,7 @@ export const ForgotPasswordPage: React.FC = () => {
         autoFocus
         {...register('email')}
         error={Boolean(errors.email)}
-        helperText={errors.email?.message}
+        helperText={errors.email?.message ? t(errors.email.message) : undefined}
       />
 
       <Button
@@ -106,12 +108,12 @@ export const ForgotPasswordPage: React.FC = () => {
           bgcolor: '#0f172a',
         }}
       >
-        {loading ? <CircularProgress size={24} sx={{ color: '#ffffff' }} /> : 'Send Reset Link'}
+        {loading ? <CircularProgress size={24} sx={{ color: '#ffffff' }} /> : t('Send Reset Link')}
       </Button>
 
       <Box sx={{ textAlign: 'center' }}>
         <MuiLink component={Link} to="/login" variant="body2" sx={{ fontWeight: 600, color: '#0284c7' }}>
-          Back to Sign In
+          {t('Back to Sign In')}
         </MuiLink>
       </Box>
     </Box>

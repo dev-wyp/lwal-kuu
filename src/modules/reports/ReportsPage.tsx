@@ -15,15 +15,24 @@ import {
   Grid,
   TextField,
   CircularProgress,
+  Alert,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useOrg } from '@/context/OrgContext';
+import { useEntitlements } from '@/modules/subscription/useEntitlements';
+import { useNavigate } from 'react-router-dom';
+import { useI18n } from '@/i18n/I18nContext';
 
 export const ReportsPage: React.FC = () => {
+  const { t } = useI18n();
   const { currentOrg, formatCurrency } = useOrg();
+  const { data: entitlements = [] } = useEntitlements();
+  const navigate = useNavigate();
   const orgId = currentOrg?.id;
+  const canViewCustomerLedger = entitlements.some((item) => ['customer_ledger', 'customer_debt_tracking'].includes(item.feature_key) && item.is_allowed);
+  const canViewSupplierPayables = entitlements.some((item) => item.feature_key === 'supplier_payables' && item.is_allowed);
 
   const [activeTab, setActiveTab] = useState(0);
   const [startDate, setStartDate] = useState(
@@ -65,7 +74,7 @@ export const ReportsPage: React.FC = () => {
       if (error) throw error;
       return data || [];
     },
-    enabled: Boolean(orgId),
+    enabled: Boolean(orgId) && canViewCustomerLedger,
   });
 
   // 3. Supplier Payables Report
@@ -82,7 +91,7 @@ export const ReportsPage: React.FC = () => {
       if (error) throw error;
       return data || [];
     },
-    enabled: Boolean(orgId),
+    enabled: Boolean(orgId) && canViewSupplierPayables,
   });
 
   // Export to CSV helper
@@ -105,11 +114,9 @@ export const ReportsPage: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
-            Reports & Business Intelligence
-          </Typography>
+            {t("Reports & Business Intelligence")}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Gross profit margins, daily revenue, customer receivables, and vendor payables.
-          </Typography>
+            {t("Gross profit margins, daily revenue, customer receivables, and vendor payables.")}</Typography>
         </div>
         <Button
           variant="outlined"
@@ -121,9 +128,12 @@ export const ReportsPage: React.FC = () => {
           }}
           sx={{ borderRadius: 2 }}
         >
-          Export CSV
-        </Button>
+          {t("Export CSV")}</Button>
       </Box>
+
+      {(!canViewCustomerLedger || !canViewSupplierPayables) && <Alert severity="info" sx={{ mb: 2 }} action={<Button size="small" color="inherit" onClick={() => navigate('/app/subscription')}>{t("Compare plans")}</Button>}>
+        {!canViewCustomerLedger && !canViewSupplierPayables ? 'Customer ledger and supplier payable reports' : !canViewCustomerLedger ? 'Customer ledger reports' : 'Supplier payable reports'} require a plan that includes those modules.
+      </Alert>}
 
       {/* Date Filter Bar */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
@@ -133,7 +143,7 @@ export const ReportsPage: React.FC = () => {
               fullWidth
               size="small"
               type="date"
-              label="Start Date"
+              label={t("Start Date")}
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               InputLabelProps={{ shrink: true }}
@@ -144,7 +154,7 @@ export const ReportsPage: React.FC = () => {
               fullWidth
               size="small"
               type="date"
-              label="End Date"
+              label={t("End Date")}
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               InputLabelProps={{ shrink: true }}
@@ -159,9 +169,9 @@ export const ReportsPage: React.FC = () => {
           onChange={(_e, v) => setActiveTab(v)}
           sx={{ px: 2, borderBottom: '1px solid #e2e8f0' }}
         >
-          <Tab label="Daily Sales & Gross Profit" sx={{ fontWeight: 600 }} />
-          <Tab label="Customer Outstanding Receivables" sx={{ fontWeight: 600 }} />
-          <Tab label="Supplier Outstanding Payables" sx={{ fontWeight: 600 }} />
+          <Tab label={t("Daily Sales & Gross Profit")} sx={{ fontWeight: 600 }} />
+          <Tab label={t("Customer Outstanding Receivables")} disabled={!canViewCustomerLedger} sx={{ fontWeight: 600 }} />
+          <Tab label={t("Supplier Outstanding Payables")} disabled={!canViewSupplierPayables} sx={{ fontWeight: 600 }} />
         </Tabs>
 
         {activeTab === 0 && (
@@ -169,12 +179,12 @@ export const ReportsPage: React.FC = () => {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Date</TableCell>
-                  <TableCell align="center">Invoices Confirmed</TableCell>
-                  <TableCell align="right">Revenue (MMK)</TableCell>
-                  <TableCell align="right">Cost of Goods (COGS)</TableCell>
-                  <TableCell align="right">Gross Profit (MMK)</TableCell>
-                  <TableCell align="right">Gross Margin %</TableCell>
+                  <TableCell>{t("Date")}</TableCell>
+                  <TableCell align="center">{t("Invoices Confirmed")}</TableCell>
+                  <TableCell align="right">{t("Revenue (MMK)")}</TableCell>
+                  <TableCell align="right">{t("Cost of Goods (COGS)")}</TableCell>
+                  <TableCell align="right">{t("Gross Profit (MMK)")}</TableCell>
+                  <TableCell align="right">{t("Gross Margin %")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -204,8 +214,7 @@ export const ReportsPage: React.FC = () => {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={6} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                      No sales recorded in the selected date range.
-                    </TableCell>
+                      {t("No sales recorded in the selected date range.")}</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -218,13 +227,13 @@ export const ReportsPage: React.FC = () => {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Customer Name</TableCell>
-                  <TableCell>Phone</TableCell>
-                  <TableCell align="right">Credit Limit</TableCell>
-                  <TableCell align="right">Opening Bal</TableCell>
-                  <TableCell align="right">Confirmed Sales</TableCell>
-                  <TableCell align="right">Payments Made</TableCell>
-                  <TableCell align="right">Outstanding Balance</TableCell>
+                  <TableCell>{t("Customer Name")}</TableCell>
+                  <TableCell>{t("Phone")}</TableCell>
+                  <TableCell align="right">{t("Credit Limit")}</TableCell>
+                  <TableCell align="right">{t("Opening Bal")}</TableCell>
+                  <TableCell align="right">{t("Confirmed Sales")}</TableCell>
+                  <TableCell align="right">{t("Payments Made")}</TableCell>
+                  <TableCell align="right">{t("Outstanding Balance")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -251,8 +260,7 @@ export const ReportsPage: React.FC = () => {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                      No outstanding receivables. All customer invoices are fully settled!
-                    </TableCell>
+                      {t("No outstanding receivables. All customer invoices are fully settled!")}</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -265,12 +273,12 @@ export const ReportsPage: React.FC = () => {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Supplier Name</TableCell>
-                  <TableCell>Phone</TableCell>
-                  <TableCell align="right">Opening Balance</TableCell>
-                  <TableCell align="right">Total Purchases</TableCell>
-                  <TableCell align="right">Total Payments Made</TableCell>
-                  <TableCell align="right">Outstanding Payable</TableCell>
+                  <TableCell>{t("Supplier Name")}</TableCell>
+                  <TableCell>{t("Phone")}</TableCell>
+                  <TableCell align="right">{t("Opening Balance")}</TableCell>
+                  <TableCell align="right">{t("Total Purchases")}</TableCell>
+                  <TableCell align="right">{t("Total Payments Made")}</TableCell>
+                  <TableCell align="right">{t("Outstanding Payable")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -296,8 +304,7 @@ export const ReportsPage: React.FC = () => {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={6} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                      No outstanding payables to suppliers.
-                    </TableCell>
+                      {t("No outstanding payables to suppliers.")}</TableCell>
                   </TableRow>
                 )}
               </TableBody>

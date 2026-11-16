@@ -45,8 +45,10 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { useNotification } from '@/context/NotificationContext';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useI18n } from '@/i18n/I18nContext';
 
 export const PlatformAdminPage: React.FC = () => {
+  const { t } = useI18n();
   const { profile } = useAuth();
   const { showSuccess, showError } = useNotification();
   const queryClient = useQueryClient();
@@ -75,7 +77,6 @@ export const PlatformAdminPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
   const [reviewEvent, setReviewEvent] = useState<any>(null);
   const [adminNotes, setAdminNotes] = useState('');
-  const [overridePlanId, setOverridePlanId] = useState<string>('business');
   const [processing, setProcessing] = useState(false);
 
   // Status toggle confirmation dialog state
@@ -214,8 +215,7 @@ export const PlatformAdminPage: React.FC = () => {
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
         <Alert severity="error" sx={{ maxWidth: 500, mx: 'auto', borderRadius: 2 }}>
-          Access Denied. You do not have Platform Super-Admin privileges.
-        </Alert>
+          {t("Access Denied. You do not have Platform Super-Admin privileges.")}</Alert>
       </Box>
     );
   }
@@ -274,12 +274,12 @@ export const PlatformAdminPage: React.FC = () => {
         p_event_id: reviewEvent.id,
         p_approve: approve,
         p_admin_notes: adminNotes || null,
-        p_target_plan_id: overridePlanId || null,
+        p_target_plan_id: null,
       });
 
       if (error) throw error;
 
-      showSuccess(`Payment ${approve ? `approved and activated to plan "${overridePlanId.toUpperCase()}"` : 'rejected'}`);
+      showSuccess(`Payment ${approve ? 'approved and the submitted plan activated' : 'rejected'}`);
       queryClient.invalidateQueries({ queryKey: ['platform_all_orgs'] });
       queryClient.invalidateQueries({ queryKey: ['platform_sub_events'] });
       queryClient.invalidateQueries({ queryKey: ['platform_metrics'] });
@@ -340,11 +340,9 @@ export const PlatformAdminPage: React.FC = () => {
           <AdminPanelSettingsIcon sx={{ fontSize: 40, color: '#dc2626' }} />
           <div>
             <Typography variant="h4" sx={{ fontWeight: 800 }}>
-              Platform Super-Admin
-            </Typography>
+              {t("Platform Super-Admin")}</Typography>
             <Typography variant="body2" color="text.secondary">
-              Cross-tenant governance, organization controls, subscription billing, and platform audit trail.
-            </Typography>
+              {t("Cross-tenant governance, organization controls, subscription billing, and platform audit trail.")}</Typography>
           </div>
         </Box>
         <Tooltip title="Refresh Platform Data">
@@ -362,8 +360,7 @@ export const PlatformAdminPage: React.FC = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase' }}>
-                    Total Tenants
-                  </Typography>
+                    {t("Total Tenants")}</Typography>
                   <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>
                     {metricsLoading ? <CircularProgress size={20} /> : totalOrgsCount}
                   </Typography>
@@ -380,8 +377,7 @@ export const PlatformAdminPage: React.FC = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase' }}>
-                    Active Tenants
-                  </Typography>
+                    {t("Active Tenants")}</Typography>
                   <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, color: '#16a34a' }}>
                     {metricsLoading ? <CircularProgress size={20} /> : activeOrgsCount}
                   </Typography>
@@ -398,8 +394,7 @@ export const PlatformAdminPage: React.FC = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase' }}>
-                    Suspended Tenants
-                  </Typography>
+                    {t("Suspended Tenants")}</Typography>
                   <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, color: suspendedOrgsCount > 0 ? '#dc2626' : '#64748b' }}>
                     {metricsLoading ? <CircularProgress size={20} /> : suspendedOrgsCount}
                   </Typography>
@@ -416,8 +411,7 @@ export const PlatformAdminPage: React.FC = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase' }}>
-                    Registered Users
-                  </Typography>
+                    {t("Registered Users")}</Typography>
                   <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>
                     {metricsLoading ? <CircularProgress size={20} /> : totalUsersCount}
                   </Typography>
@@ -438,8 +432,8 @@ export const PlatformAdminPage: React.FC = () => {
         >
           <Tab label={`Tenant Organizations (${allOrgs.length})`} sx={{ fontWeight: 600 }} />
           <Tab label={`Subscriptions & Approvals (${subEvents.length})`} sx={{ fontWeight: 600 }} />
-          <Tab label="Platform Audit Logs" sx={{ fontWeight: 600 }} />
-          <Tab label="Usage Analytics" sx={{ fontWeight: 600 }} />
+          <Tab label={t("Platform Audit Logs")} sx={{ fontWeight: 600 }} />
+          <Tab label={t("Usage Analytics")} sx={{ fontWeight: 600 }} />
           <Tab label={`Automations & Outbox (${outboxItems.length})`} sx={{ fontWeight: 600 }} />
         </Tabs>
 
@@ -464,15 +458,15 @@ export const PlatformAdminPage: React.FC = () => {
               />
 
               <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>Status</InputLabel>
+                <InputLabel>{t("Status")}</InputLabel>
                 <Select
                   value={statusFilter}
-                  label="Status"
+                  label={t("Status")}
                   onChange={(e) => setStatusFilter(e.target.value as any)}
                 >
-                  <MenuItem value="all">All Statuses</MenuItem>
-                  <MenuItem value="active">Active Only</MenuItem>
-                  <MenuItem value="suspended">Suspended Only</MenuItem>
+                  <MenuItem value="all">{t("All Statuses")}</MenuItem>
+                  <MenuItem value="active">{t("Active Only")}</MenuItem>
+                  <MenuItem value="suspended">{t("Suspended Only")}</MenuItem>
                 </Select>
               </FormControl>
             </Box>
@@ -481,13 +475,13 @@ export const PlatformAdminPage: React.FC = () => {
               <Table>
                 <TableHead sx={{ bgcolor: '#f8fafc' }}>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 700 }}>Organization Name</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Slug</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Created Date</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Plan</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Billing / Expiry</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700 }}>Tenant Status</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700 }}>Admin Actions</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t("Organization Name")}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t("Slug")}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t("Created Date")}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t("Plan")}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t("Billing / Expiry")}</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700 }}>{t("Tenant Status")}</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700 }}>{t("Admin Actions")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -500,8 +494,7 @@ export const PlatformAdminPage: React.FC = () => {
                   ) : filteredOrgs.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                        No organizations found matching your search.
-                      </TableCell>
+                        {t("No organizations found matching your search.")}</TableCell>
                     </TableRow>
                   ) : (
                     filteredOrgs.map((org: any) => {
@@ -544,8 +537,7 @@ export const PlatformAdminPage: React.FC = () => {
                                 })}
                                 sx={{ borderRadius: 1.5, fontSize: 11, py: 0.3, color: '#0284c7', borderColor: '#bae6fd' }}
                               >
-                                Plan
-                              </Button>
+                                {t("Plan")}</Button>
                               {org.is_active ? (
                                 <Button
                                   size="small"
@@ -555,8 +547,7 @@ export const PlatformAdminPage: React.FC = () => {
                                   onClick={() => setStatusDialogOrg({ id: org.id, name: org.name, is_active: true })}
                                   sx={{ borderRadius: 1.5, fontSize: 11, py: 0.3 }}
                                 >
-                                  Suspend
-                                </Button>
+                                  {t("Suspend")}</Button>
                               ) : (
                                 <Button
                                   size="small"
@@ -566,8 +557,7 @@ export const PlatformAdminPage: React.FC = () => {
                                   onClick={() => setStatusDialogOrg({ id: org.id, name: org.name, is_active: false })}
                                   sx={{ borderRadius: 1.5, fontSize: 11, py: 0.3 }}
                                 >
-                                  Activate
-                                </Button>
+                                  {t("Activate")}</Button>
                               )}
                             </Box>
                           </TableCell>
@@ -588,13 +578,13 @@ export const PlatformAdminPage: React.FC = () => {
               <Table>
                 <TableHead sx={{ bgcolor: '#f8fafc' }}>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t("Date")}</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Organization</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Event</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Requested Plan</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>Amount</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Method</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Reference</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t("Requested Plan")}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700 }}>{t("Amount")}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t("Method")}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t("Reference")}</TableCell>
                     <TableCell align="center" sx={{ fontWeight: 700 }}>Action</TableCell>
                   </TableRow>
                 </TableHead>
@@ -608,8 +598,7 @@ export const PlatformAdminPage: React.FC = () => {
                   ) : subEvents.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                        No pending subscription verification requests.
-                      </TableCell>
+                        {t("No pending subscription verification requests.")}</TableCell>
                     </TableRow>
                   ) : (
                     subEvents.map((evt: any) => (
@@ -644,12 +633,10 @@ export const PlatformAdminPage: React.FC = () => {
                               disabled={processing}
                               onClick={() => {
                                 setReviewEvent(evt);
-                                setOverridePlanId(evt.plan_id || 'business');
                               }}
                               sx={{ borderRadius: 2, fontSize: 11, py: 0.4 }}
                             >
-                              Review & Approve
-                            </Button>
+                              {t("Review & Approve")}</Button>
                           ) : (
                             <Button
                               size="small"
@@ -692,7 +679,7 @@ export const PlatformAdminPage: React.FC = () => {
                     <TableCell sx={{ fontWeight: 700 }}>Organization</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>User</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Action</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Entity & Details</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t("Entity & Details")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -705,8 +692,7 @@ export const PlatformAdminPage: React.FC = () => {
                   ) : auditLogs.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                        No audit logs recorded yet.
-                      </TableCell>
+                        {t("No audit logs recorded yet.")}</TableCell>
                     </TableRow>
                   ) : (
                     auditLogs.map((log: any) => (
@@ -729,29 +715,26 @@ export const PlatformAdminPage: React.FC = () => {
         {currentTabIndex === 3 && (
           <Box sx={{ p: 3 }}>
             <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-              Cross-Tenant Usage Analytics
-            </Typography>
+              {t("Cross-Tenant Usage Analytics")}</Typography>
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
                 <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-                    Tenant Distribution
-                  </Typography>
+                    {t("Tenant Distribution")}</Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Proportion of active versus suspended organizations on ShopFlow.
-                  </Typography>
+                    {t("Proportion of active versus suspended organizations on ShopFlow.")}</Typography>
                   <Box sx={{ display: 'flex', gap: 3 }}>
                     <Box>
                       <Typography variant="h4" sx={{ fontWeight: 800, color: '#16a34a' }}>
                         {activeOrgsCount}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">Active Tenants</Typography>
+                      <Typography variant="caption" color="text.secondary">{t("Active Tenants")}</Typography>
                     </Box>
                     <Box>
                       <Typography variant="h4" sx={{ fontWeight: 800, color: suspendedOrgsCount > 0 ? '#dc2626' : '#64748b' }}>
                         {suspendedOrgsCount}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">Suspended Tenants</Typography>
+                      <Typography variant="caption" color="text.secondary">{t("Suspended Tenants")}</Typography>
                     </Box>
                     <Box>
                       <Typography variant="h4" sx={{ fontWeight: 800, color: '#0284c7' }}>
@@ -766,11 +749,9 @@ export const PlatformAdminPage: React.FC = () => {
               <Grid item xs={12} md={6}>
                 <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-                    Localization & Regional Configuration
-                  </Typography>
+                    {t("Localization & Regional Configuration")}</Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Default platform settings enforced across all tenants.
-                  </Typography>
+                    {t("Default platform settings enforced across all tenants.")}</Typography>
                   <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     <Chip label="Default Currency: MMK (Ks)" sx={{ fontWeight: 600 }} />
                     <Chip label="Timezone: Asia/Yangon (UTC+06:30)" sx={{ fontWeight: 600 }} />
@@ -832,7 +813,7 @@ export const PlatformAdminPage: React.FC = () => {
                     <TableCell sx={{ fontWeight: 700 }}>Notification Type</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Recipient</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Subject</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700 }}>Status</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700 }}>{t("Status")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -903,8 +884,7 @@ export const PlatformAdminPage: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setStatusDialogOrg(null)} disabled={processing}>
-            Cancel
-          </Button>
+            {t("Cancel")}</Button>
           <Button
             variant="contained"
             color={statusDialogOrg?.is_active ? 'error' : 'success'}
@@ -933,18 +913,9 @@ export const PlatformAdminPage: React.FC = () => {
             <strong>Reference / Trx ID:</strong> {reviewEvent?.payment_reference}
           </Typography>
 
-          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-            <InputLabel>Plan to Activate</InputLabel>
-            <Select
-              value={overridePlanId}
-              label="Plan to Activate"
-              onChange={(e) => setOverridePlanId(e.target.value)}
-            >
-              <MenuItem value="starter">Starter Plan (2 Users, 200 Products)</MenuItem>
-              <MenuItem value="business">Business Plan (5 Users, 1,000 Products)</MenuItem>
-              <MenuItem value="pro">Pro Plan (15 Users, 5,000 Products)</MenuItem>
-            </Select>
-          </FormControl>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Approval activates the plan and billing cycle submitted with this payment ({reviewEvent?.plan_id ?? 'current plan'}).
+          </Alert>
 
           <TextField
             fullWidth
@@ -1028,8 +999,7 @@ export const PlatformAdminPage: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setPlanChangeDialog(null)} disabled={processing}>
-            Cancel
-          </Button>
+            {t("Cancel")}</Button>
           <Button
             variant="contained"
             onClick={handleDirectPlanChange}
