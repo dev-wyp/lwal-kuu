@@ -23,6 +23,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useOrg } from '@/context/OrgContext';
 import { useI18n } from '@/i18n/I18nContext';
+import { useEntitlements } from '@/modules/subscription/useEntitlements';
 
 interface CustomerLedgerModalProps {
   open: boolean;
@@ -37,6 +38,8 @@ export const CustomerLedgerModal: React.FC<CustomerLedgerModalProps> = ({
 }) => {
   const { t } = useI18n();
   const { currentOrg, formatCurrency } = useOrg();
+  const { data: entitlements = [] } = useEntitlements();
+  const canPrintStatement = entitlements.some((item) => item.feature_key === 'customer_statement_pdf' && item.is_allowed);
   const orgId = currentOrg?.id;
 
   const [startDate, setStartDate] = useState('');
@@ -78,8 +81,8 @@ export const CustomerLedgerModal: React.FC<CustomerLedgerModalProps> = ({
             Phone: {customer?.phone || 'N/A'} &bull; Credit Limit: {formatCurrency(customer?.credit_limit || 0)}
           </Typography>
         </div>
-        <Button startIcon={<PrintIcon />} variant="outlined" size="small" onClick={handlePrint}>
-          {t("Print Statement")}</Button>
+        {canPrintStatement && <Button startIcon={<PrintIcon />} variant="outlined" size="small" onClick={handlePrint}>
+          {t("Print Statement")}</Button>}
       </DialogTitle>
 
       <DialogContent dividers>

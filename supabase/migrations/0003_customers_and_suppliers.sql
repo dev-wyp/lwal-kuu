@@ -13,7 +13,7 @@ begin
     select 1 from information_schema.columns 
     where table_schema = 'public' and table_name = 'organizations' and column_name = 'slug'
   ) then
-    drop table public.organizations cascade;
+    raise exception 'Refusing destructive legacy schema replacement; migrate existing business data before applying this schema.';
   end if;
 end $$;
 
@@ -77,7 +77,7 @@ begin
     select 1 from information_schema.columns 
     where table_schema = 'public' and table_name = 'customers' and column_name = 'organization_id'
   ) then
-    drop table public.customers cascade;
+    raise exception 'Refusing destructive legacy schema replacement; migrate existing business data before applying this schema.';
   end if;
 
   if exists (
@@ -87,7 +87,7 @@ begin
     select 1 from information_schema.columns 
     where table_schema = 'public' and table_name = 'suppliers' and column_name = 'organization_id'
   ) then
-    drop table public.suppliers cascade;
+    raise exception 'Refusing destructive legacy schema replacement; migrate existing business data before applying this schema.';
   end if;
 end $$;
 

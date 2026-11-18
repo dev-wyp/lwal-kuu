@@ -125,7 +125,7 @@ export const AdminUsersPage: React.FC = () => {
             placeholder="Search users by name or email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ minWidth: 320 }}
+            sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { xs: 0, sm: 320 }, maxWidth: '100%' }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">

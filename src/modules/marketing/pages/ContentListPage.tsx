@@ -7,6 +7,7 @@ import {
   MenuItem,
   Stack,
   Table,
+  TableContainer,
   TableBody,
   TableCell,
   TableHead,
@@ -59,12 +60,12 @@ export const ContentListPage: React.FC = () => {
         </Button>
       </Stack>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
-        <TextField select label="Platform" value={platform} onChange={(e) => setPlatform(e.target.value as 'all' | SocialPlatform)} sx={{ minWidth: 160 }}>
+        <TextField fullWidth select label="Platform" value={platform} onChange={(e) => setPlatform(e.target.value as 'all' | SocialPlatform)} sx={{ minWidth: { xs: 0, sm: 160 }, flex: { sm: '0 1 220px' } }}>
           <MenuItem value="all">All</MenuItem>
           <MenuItem value="facebook">Facebook</MenuItem>
           <MenuItem value="tiktok">TikTok</MenuItem>
         </TextField>
-        <TextField select label={t("Status")} value={status} onChange={(e) => setStatus(e.target.value as 'all' | ContentStatus)} sx={{ minWidth: 180 }}>
+        <TextField fullWidth select label={t("Status")} value={status} onChange={(e) => setStatus(e.target.value as 'all' | ContentStatus)} sx={{ minWidth: { xs: 0, sm: 180 }, flex: { sm: '0 1 240px' } }}>
           <MenuItem value="all">All</MenuItem>
           {['draft', 'pending_review', 'approved', 'rejected', 'scheduled', 'published', 'failed', 'archived'].map((s) => (
             <MenuItem key={s} value={s}>{s}</MenuItem>
@@ -76,7 +77,8 @@ export const ContentListPage: React.FC = () => {
         <Alert severity="info">No content yet. Create a draft or generate ideas with AI.</Alert>
       )}
       {filtered.length > 0 && (
-        <Table size="small">
+        <TableContainer>
+        <Table size="small" sx={{ minWidth: 620 }}>
           <TableHead>
             <TableRow>
               <TableCell>Title</TableCell>
@@ -101,6 +103,7 @@ export const ContentListPage: React.FC = () => {
             ))}
           </TableBody>
         </Table>
+        </TableContainer>
       )}
     </Box>
   );

@@ -39,15 +39,17 @@ export const LandingPage: React.FC = () => {
       {/* Navbar */}
       <AppBar position="sticky" sx={{ bgcolor: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', boxShadow: 'none', borderBottom: '1px solid #e2e8f0' }}>
         <Container maxWidth="lg">
-          <Toolbar disableGutters sx={{ justifyContent: 'space-between', height: 72 }}>
+          <Toolbar disableGutters sx={{ justifyContent: 'space-between', minHeight: { xs: 112, md: 72 }, height: { xs: 'auto', md: 72 }, py: { xs: 1, md: 0 }, flexWrap: { xs: 'wrap', md: 'nowrap' }, rowGap: 0.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }} onClick={() => navigate('/')}>
-              <StorefrontIcon sx={{ color: '#0284c7', fontSize: 32 }} />
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
+              <StorefrontIcon sx={{ color: '#176B5B', fontSize: 30 }} />
+              <Typography variant="h5" sx={{ fontWeight: 800, color: '#172B35', letterSpacing: '-0.02em', fontSize: { xs: 19, sm: 24 } }}>
                 Lwal Kuu
               </Typography>
             </Box>
 
-            <Stack direction="row" spacing={2} alignItems="center">
+            <Box sx={{ display: { xs: 'block', md: 'none' } }}><LanguageSwitcher compact /></Box>
+
+            <Stack direction="row" spacing={2} alignItems="center" sx={{ display: { xs: 'none', md: 'flex' } }}>
               <LanguageSwitcher compact />
               <Button color="inherit" onClick={() => navigate('/pricing')} sx={{ fontWeight: 600 }}>
                 {t('Pricing')}
@@ -66,6 +68,26 @@ export const LandingPage: React.FC = () => {
                     onClick={() => navigate('/register')}
                     sx={{ borderRadius: 2, bgcolor: '#0284c7', '&:hover': { bgcolor: '#0369a1' } }}
                   >
+                    {t('Start Free Trial')}
+                  </Button>
+                </>
+              )}
+            </Stack>
+
+            <Stack direction="row" spacing={{ xs: 0.25, sm: 1 }} alignItems="center" justifyContent="space-between" sx={{ display: { xs: 'flex', md: 'none' }, width: '100%' }}>
+              <Button size="small" color="inherit" onClick={() => navigate('/pricing')} sx={{ px: 1, minWidth: 0, fontSize: 12 }}>
+                {t('Pricing')}
+              </Button>
+              {user ? (
+                <Button size="small" color="inherit" onClick={() => navigate('/app/dashboard')} sx={{ px: 1, minWidth: 0, fontSize: 12 }}>
+                  {t('Dashboard')}
+                </Button>
+              ) : (
+                <>
+                  <Button size="small" color="inherit" onClick={() => navigate('/login')} sx={{ px: 1, minWidth: 0, fontSize: 12 }}>
+                    {t('Sign In')}
+                  </Button>
+                  <Button size="small" variant="contained" onClick={() => navigate('/register')} sx={{ px: 1.25, minWidth: 0, fontSize: 12 }}>
                     {t('Start Free Trial')}
                   </Button>
                 </>

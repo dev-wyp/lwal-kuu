@@ -29,6 +29,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useI18n } from '@/i18n/I18nContext';
+import { localDateString } from '@/lib/dates';
 
 const expenseSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -96,7 +97,7 @@ export const ExpensesPage: React.FC = () => {
       title: '',
       categoryId: '',
       amount: 0,
-      expenseDate: new Date().toISOString().split('T')[0],
+      expenseDate: localDateString(),
       paymentMethod: 'cash',
       notes: '',
     },
@@ -119,7 +120,7 @@ export const ExpensesPage: React.FC = () => {
       title: '',
       categoryId: categories[0]?.id || '',
       amount: 0,
-      expenseDate: new Date().toISOString().split('T')[0],
+      expenseDate: localDateString(),
       paymentMethod: 'cash',
       notes: '',
     });
@@ -154,7 +155,7 @@ export const ExpensesPage: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
             {t("Operational Expenses")}</Typography>

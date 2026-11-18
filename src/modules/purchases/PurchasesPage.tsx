@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Typography,
@@ -30,6 +30,7 @@ import { supabase } from '@/lib/supabase';
 import { useOrg } from '@/context/OrgContext';
 import { useNotification } from '@/context/NotificationContext';
 import { useI18n } from '@/i18n/I18nContext';
+import { localDateString } from '@/lib/dates';
 
 export const PurchasesPage: React.FC = () => {
   const { t } = useI18n();
@@ -44,7 +45,8 @@ export const PurchasesPage: React.FC = () => {
 
   // New PO State
   const [supplierId, setSupplierId] = useState('');
-  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
+  const [branchId, setBranchId] = useState('');
+  const [purchaseDate, setPurchaseDate] = useState(localDateString());
   const [items, setItems] = useState<Array<{ productId: string; quantity: number; unitCost: number }>>([
     { productId: '', quantity: 1, unitCost: 0 },
   ]);
@@ -54,6 +56,25 @@ export const PurchasesPage: React.FC = () => {
   const [receivePaidAmount, setReceivePaidAmount] = useState<number>(0);
   const [receivePaymentMethod, setReceivePaymentMethod] = useState('cash');
   const [receiving, setReceiving] = useState(false);
+
+  const { data: branches = [] } = useQuery({
+    queryKey: ['branches', orgId],
+    queryFn: async () => {
+      if (!orgId) return [];
+      const { data, error } = await supabase.from('branches' as any).select('id, name, is_default')
+        .eq('organization_id', orgId).eq('is_active', true).order('is_default', { ascending: false }).order('name');
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: Boolean(orgId),
+  });
+
+  useEffect(() => {
+    if (!branches.length) return;
+    setBranchId((current) => branches.some((branch: any) => branch.id === current)
+      ? current
+      : (branches.find((branch: any) => branch.is_default) ?? branches[0]).id);
+  }, [branches]);
 
   // 1. Fetch Suppliers
   const { data: suppliers = [] } = useQuery({
@@ -132,7 +153,9 @@ export const PurchasesPage: React.FC = () => {
   };
 
   const calculateTotal = () => {
-    return items.reduce((acc, it) => acc + (it.quantity * it.unitCost), 0);
+    return items.reduce((acc, it) => it.productId && Number.isFinite(it.quantity) && it.quantity > 0 && Number.isFinite(it.unitCost) && it.unitCost >= 0
+      ? acc + (it.quantity * it.unitCost)
+      : acc, 0);
   };
 
   const handleCreatePurchase = async () => {
@@ -141,7 +164,12 @@ export const PurchasesPage: React.FC = () => {
       return;
     }
 
-    const validItems = items.filter((it) => it.productId && it.quantity > 0);
+    const invalidItems = items.filter((it) => it.productId && (!Number.isFinite(it.quantity) || it.quantity <= 0 || !Number.isFinite(it.unitCost) || it.unitCost < 0));
+    if (invalidItems.length) {
+      showError('Each selected product needs a positive quantity and a non-negative unit cost');
+      return;
+    }
+    const validItems = items.filter((it) => it.productId && it.quantity > 0 && it.unitCost >= 0);
     if (validItems.length === 0) {
       showError('Please add at least one product');
       return;
@@ -153,6 +181,7 @@ export const PurchasesPage: React.FC = () => {
         p_org_id: currentOrg.id,
         p_doc_type: 'purchase',
       });
+      if (poNum.error) throw poNum.error;
 
       const total = calculateTotal();
 
@@ -161,6 +190,7 @@ export const PurchasesPage: React.FC = () => {
         .insert({
           organization_id: currentOrg.id,
           supplier_id: supplierId,
+          branch_id: branchId || null,
           purchase_number: poNum.data,
           purchase_date: purchaseDate,
           status: 'ordered',
@@ -217,6 +247,10 @@ export const PurchasesPage: React.FC = () => {
       showSuccess(`PO ${selectedPurchase.purchase_number} marked received and stock ledger updated!`);
       queryClient.invalidateQueries({ queryKey: ['purchases'] });
       queryClient.invalidateQueries({ queryKey: ['product_stock_balances'] });
+      queryClient.invalidateQueries({ queryKey: ['stock_balances'] });
+      queryClient.invalidateQueries({ queryKey: ['branch_stock_balances'] });
+      queryClient.invalidateQueries({ queryKey: ['products_for_pos'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard_metrics'] });
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       setReceiveModalOpen(false);
     } catch (err: any) {
@@ -228,7 +262,7 @@ export const PurchasesPage: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
             {t("Purchase Orders & Receiving")}</Typography>
@@ -240,6 +274,7 @@ export const PurchasesPage: React.FC = () => {
           startIcon={<AddIcon />}
           onClick={() => {
             setSupplierId(suppliers[0]?.id || '');
+            setBranchId((branches.find((branch: any) => branch.is_default) ?? branches[0])?.id ?? '');
             setItems([{ productId: '', quantity: 1, unitCost: 0 }]);
             setCreateModalOpen(true);
           }}
@@ -337,6 +372,11 @@ export const PurchasesPage: React.FC = () => {
               </TextField>
             </Grid>
             <Grid item xs={12} sm={6}>
+              <TextField fullWidth size="small" select label={t('Branch')} value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+                {branches.map((branch: any) => <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>)}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 size="small"
@@ -354,7 +394,7 @@ export const PurchasesPage: React.FC = () => {
 
           {items.map((item, idx) => (
             <Grid container spacing={1.5} key={idx} sx={{ mb: 1.5 }} alignItems="center">
-              <Grid item xs={5}>
+              <Grid item xs={12} sm={5}>
                 <TextField
                   fullWidth
                   size="small"
@@ -370,7 +410,7 @@ export const PurchasesPage: React.FC = () => {
                   ))}
                 </TextField>
               </Grid>
-              <Grid item xs={3}>
+              <Grid item xs={5} sm={3}>
                 <TextField
                   fullWidth
                   size="small"
@@ -380,7 +420,7 @@ export const PurchasesPage: React.FC = () => {
                   onChange={(e) => handleItemChange(idx, 'quantity', Number(e.target.value))}
                 />
               </Grid>
-              <Grid item xs={3}>
+              <Grid item xs={5} sm={3}>
                 <TextField
                   fullWidth
                   size="small"
@@ -390,8 +430,8 @@ export const PurchasesPage: React.FC = () => {
                   onChange={(e) => handleItemChange(idx, 'unitCost', Number(e.target.value))}
                 />
               </Grid>
-              <Grid item xs={1}>
-                <IconButton size="small" color="error" onClick={() => handleRemoveItem(idx)}>
+              <Grid item xs={2} sm={1}>
+                <IconButton aria-label={t('Remove item')} size="small" color="error" onClick={() => handleRemoveItem(idx)}>
                   <DeleteIcon fontSize="small" />
                 </IconButton>
               </Grid>

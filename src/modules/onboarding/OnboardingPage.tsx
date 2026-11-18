@@ -101,7 +101,7 @@ export const OnboardingPage: React.FC = () => {
         finalSlug = 'shop-' + Math.random().toString(36).substring(2, 7);
       }
 
-      // 1. Try atomic onboarding RPC first (bypasses RLS chicken-and-egg issues)
+      // Tenant provisioning must be atomic so a failed setup cannot leave partial records.
       const { data: rpcOrg, error: rpcError } = await supabase.rpc('create_organization_with_owner', {
         p_name: data.name,
         p_slug: finalSlug,
@@ -110,75 +110,12 @@ export const OnboardingPage: React.FC = () => {
         p_address: data.address || null,
       });
 
-      let createdOrgId: string;
-      let createdOrgName: string;
-
-      if (!rpcError && rpcOrg) {
-        createdOrgId = (rpcOrg as { id: string; name: string }).id;
-        createdOrgName = (rpcOrg as { id: string; name: string }).name;
-      } else {
-        // Fallback to direct insert
-        const { data: orgData, error: orgError } = await supabase
-          .from('organizations')
-          .insert({
-            name: data.name,
-            slug: finalSlug,
-          })
-          .select()
-          .single();
-
-        if (orgError) {
-          throw new Error(orgError.message);
-        }
-
-        createdOrgId = orgData.id;
-        createdOrgName = orgData.name;
-
-        // 2. Add User as Owner
-        await supabase
-          .from('organization_members')
-          .insert({
-            organization_id: orgData.id,
-            user_id: user.id,
-            role: 'owner',
-          });
-
-        // 3. Create Default Organization Settings
-        await supabase
-          .from('organization_settings')
-          .insert({
-            organization_id: orgData.id,
-            currency_code: 'MMK',
-            currency_symbol: 'Ks',
-            timezone: 'Asia/Yangon',
-            phone: data.phone || null,
-            address: data.address || null,
-            costing_method: 'weighted_average',
-            low_stock_threshold_default: 5,
-          });
-
-        // 4. Initialize 14-day Free Trial
-        try {
-          await supabase.rpc('initialize_organization_trial', {
-            p_org_id: orgData.id,
-            p_plan_id: selectedPlan,
-          });
-        } catch {
-          // Graceful fallback
-        }
-
-        // 5. Seed baseline measurement units
-        try {
-          await supabase.from('units').insert([
-            { organization_id: orgData.id, code: 'pcs', name: 'Pieces (ခု)', precision: 0 },
-            { organization_id: orgData.id, code: 'box', name: 'Box (ဖာ)', precision: 0 },
-            { organization_id: orgData.id, code: 'pack', name: 'Packet (ထုပ်)', precision: 0 },
-            { organization_id: orgData.id, code: 'dozen', name: 'Dozen (ဒါဇင်)', precision: 0 },
-          ]);
-        } catch {
-          // Graceful fallback
-        }
+      if (rpcError) throw new Error(rpcError.message);
+      if (!rpcOrg || typeof rpcOrg !== 'object' || !('id' in rpcOrg) || !('name' in rpcOrg)) {
+        throw new Error('Organization setup did not complete. Please try again.');
       }
+      const createdOrgId = (rpcOrg as { id: string; name: string }).id;
+      const createdOrgName = (rpcOrg as { id: string; name: string }).name;
 
       showSuccess(`Organization "${createdOrgName}" created! Your 14-day trial is active.`);
       localStorage.setItem('shopflow_active_org_id', createdOrgId);

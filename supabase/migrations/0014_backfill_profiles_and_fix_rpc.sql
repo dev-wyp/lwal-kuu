@@ -5,7 +5,7 @@
 
 -- 1. Backfill all existing auth.users into public.profiles
 insert into public.profiles (id, full_name, email, phone_number)
-select 
+select
   id,
   coalesce(raw_user_meta_data->>'full_name', split_part(email, '@', 1), 'User'),
   email,

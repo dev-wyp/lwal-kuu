@@ -8,6 +8,7 @@ import {
   MenuItem,
   Stack,
   Table,
+  TableContainer,
   TableBody,
   TableCell,
   TableHead,
@@ -89,18 +90,23 @@ export const CalendarPage: React.FC = () => {
   return (
     <Box>
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2 }}>
-        <ToggleButtonGroup exclusive value={view} onChange={(_e, value: ViewMode | null) => value && setView(value)}>
+        <ToggleButtonGroup
+          exclusive
+          value={view}
+          onChange={(_e, value: ViewMode | null) => value && setView(value)}
+          sx={{ width: { xs: '100%', md: 'auto' }, flexWrap: 'wrap', '& .MuiToggleButton-root': { flex: { xs: '1 1 25%', md: '0 0 auto' }, px: { xs: 1, sm: 2 } } }}
+        >
           <ToggleButton value="month">Month</ToggleButton>
           <ToggleButton value="week">Week</ToggleButton>
           <ToggleButton value="day">Day</ToggleButton>
           <ToggleButton value="list">List</ToggleButton>
         </ToggleButtonGroup>
-        <TextField select label="Platform" value={platform} onChange={(e) => setPlatform(e.target.value as 'all' | SocialPlatform)} sx={{ minWidth: 140 }}>
+        <TextField fullWidth select label="Platform" value={platform} onChange={(e) => setPlatform(e.target.value as 'all' | SocialPlatform)} sx={{ width: { xs: '100%', md: 'auto' }, minWidth: 0 }}>
           <MenuItem value="all">All</MenuItem>
           <MenuItem value="facebook">Facebook</MenuItem>
           <MenuItem value="tiktok">TikTok</MenuItem>
         </TextField>
-        <TextField select label={t("Status")} value={status} onChange={(e) => setStatus(e.target.value as 'all' | ContentStatus)} sx={{ minWidth: 160 }}>
+        <TextField fullWidth select label={t("Status")} value={status} onChange={(e) => setStatus(e.target.value as 'all' | ContentStatus)} sx={{ width: { xs: '100%', md: 'auto' }, minWidth: 0 }}>
           <MenuItem value="all">All</MenuItem>
           {['approved', 'scheduled', 'published', 'failed'].map((s) => (
             <MenuItem key={s} value={s}>{s}</MenuItem>
@@ -108,12 +114,14 @@ export const CalendarPage: React.FC = () => {
         </TextField>
         <TextField
           type="date"
+          fullWidth
           label="Focus date"
           InputLabelProps={{ shrink: true }}
           value={isoDate(anchor)}
           onChange={(e) => {
             if (e.target.value) setAnchor(new Date(`${e.target.value}T12:00:00.000Z`));
           }}
+          sx={{ width: { xs: '100%', md: 'auto' }, minWidth: 0 }}
         />
       </Stack>
 
@@ -123,6 +131,7 @@ export const CalendarPage: React.FC = () => {
       </Alert>
 
       {view === 'list' ? (
+        <TableContainer>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -145,12 +154,15 @@ export const CalendarPage: React.FC = () => {
             ))}
           </TableBody>
         </Table>
+        </TableContainer>
       ) : (
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr', sm: view === 'day' ? '1fr' : 'repeat(7, 1fr)' },
+            gridTemplateColumns: { xs: '1fr', md: view === 'day' ? '1fr' : 'repeat(7, minmax(130px, 1fr))' },
             gap: 1,
+            overflowX: { xs: 'visible', md: 'auto' },
+            pb: { md: 1 },
           }}
         >
           {days.map((day) => {

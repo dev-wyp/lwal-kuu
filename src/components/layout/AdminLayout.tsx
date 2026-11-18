@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Box,
   AppBar,
@@ -27,6 +27,7 @@ import BusinessIcon from '@mui/icons-material/Business';
 import LoyaltyIcon from '@mui/icons-material/Loyalty';
 import PeopleIcon from '@mui/icons-material/People';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -51,6 +52,7 @@ const adminNavItems: AdminNavItem[] = [
   { title: 'Plans & Features', path: '/admin/plans', icon: <TuneIcon fontSize="small" /> },
   { title: 'Global Platform Users', path: '/admin/users', icon: <PeopleIcon fontSize="small" /> },
   { title: 'Usage Analytics', path: '/admin/analytics', icon: <AssessmentIcon fontSize="small" /> },
+  { title: 'Priority Support', path: '/admin/support', icon: <SupportAgentIcon fontSize="small" /> },
   { title: 'Platform Audit Logs', path: '/admin/audit-logs', icon: <ReceiptLongIcon fontSize="small" /> },
   { title: 'Automations & Crons', path: '/admin/automations', icon: <AutoAwesomeIcon fontSize="small" /> },
   { title: 'Lwal Kuu Marketing', path: '/admin/marketing', icon: <CampaignIcon fontSize="small" /> },
@@ -60,12 +62,20 @@ export const AdminLayout: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const previousMobile = useRef(isMobile);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useI18n();
   const { user, profile, loading, signOut } = useAuth();
+
+  useEffect(() => {
+    if (previousMobile.current !== isMobile) {
+      setSidebarOpen(!isMobile);
+      previousMobile.current = isMobile;
+    }
+  }, [isMobile]);
 
   const handleToggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -138,7 +148,7 @@ export const AdminLayout: React.FC = () => {
   }
 
   const drawerContent = (
-    <Box sx={{ width: 260, display: 'flex', flexDirection: 'column', height: '100%', py: 1, bgcolor: '#0f172a', color: '#f8fafc' }}>
+    <Box sx={{ width: 272, display: 'flex', flexDirection: 'column', height: '100%', py: 1, bgcolor: '#0f172a', color: '#f8fafc', overflowY: 'auto' }}>
       <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
         <Chip
           label="MASTER GOVERNANCE"
@@ -226,21 +236,21 @@ export const AdminLayout: React.FC = () => {
           zIndex: (theme) => theme.zIndex.drawer + 1,
         }}
       >
-        <Toolbar sx={{ justifyContent: 'space-between', minHeight: 64 }}>
+        <Toolbar sx={{ justifyContent: 'space-between', minHeight: { xs: 58, sm: 68 }, px: { xs: 1, sm: 2.5 } }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <IconButton edge="start" color="inherit" onClick={handleToggleSidebar} sx={{ mr: 1 }}>
+            <IconButton edge="start" color="inherit" onClick={handleToggleSidebar} aria-label={t('Open navigation menu')} sx={{ mr: { xs: 0, sm: 0.5 } }}>
               <MenuIcon />
             </IconButton>
 
             <Box
-              sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }}
+              sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', minWidth: 0 }}
               onClick={() => navigate('/admin/organizations')}
             >
-              <AdminPanelSettingsIcon sx={{ color: '#ef4444', fontSize: 30 }} />
+              <AdminPanelSettingsIcon sx={{ color: '#ef4444', fontSize: { xs: 26, sm: 30 }, flexShrink: 0 }} />
               <div>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: '#ffffff', lineHeight: 1.2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: '#ffffff', lineHeight: 1.2, fontSize: { xs: 14, sm: 18 }, whiteSpace: 'nowrap' }}>
                   {t("Lwal Kuu Master Admin")}</Typography>
-                <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: 11 }}>
+                <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: 11, display: { xs: 'none', sm: 'block' } }}>
                   {t("Cross-Tenant Cloud Governance")}</Typography>
               </div>
             </Box>
@@ -261,7 +271,7 @@ export const AdminLayout: React.FC = () => {
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <LanguageSwitcher compact />
+            <Box sx={{ display: { xs: 'none', sm: 'block' } }}><LanguageSwitcher compact /></Box>
             <Button
               variant="text"
               size="small"
@@ -273,7 +283,7 @@ export const AdminLayout: React.FC = () => {
             </Button>
 
             {/* Admin Avatar & Dropdown */}
-            <IconButton onClick={handleMenuOpen} size="small">
+            <IconButton onClick={handleMenuOpen} size="small" aria-label={t('Open account menu')}>
               <Avatar sx={{ bgcolor: '#dc2626', width: 34, height: 34, fontSize: 14, fontWeight: 700 }}>
                 {profile?.full_name ? profile.full_name[0].toUpperCase() : 'A'}
               </Avatar>
@@ -304,6 +314,8 @@ export const AdminLayout: React.FC = () => {
               </Box>
               <Divider sx={{ borderColor: '#1e293b' }} />
 
+              <Box sx={{ px: 2, py: 1.25, display: { xs: 'block', sm: 'none' } }}><LanguageSwitcher compact /></Box>
+
               <MenuItem onClick={() => { handleMenuClose(); navigate('/app/dashboard'); }} sx={{ color: '#f8fafc', fontSize: 13 }}>
                 <ListItemIcon sx={{ color: '#38bdf8' }}>
                   <StorefrontIcon fontSize="small" />
@@ -332,7 +344,7 @@ export const AdminLayout: React.FC = () => {
             open={sidebarOpen}
             onClose={() => setSidebarOpen(false)}
             ModalProps={{ keepMounted: true }}
-            PaperProps={{ sx: { bgcolor: '#0f172a', borderRight: '1px solid #1e293b' } }}
+            PaperProps={{ sx: { bgcolor: '#0f172a', borderRight: '1px solid #1e293b', width: 272 } }}
           >
             {drawerContent}
           </Drawer>
@@ -342,11 +354,11 @@ export const AdminLayout: React.FC = () => {
             open={sidebarOpen}
             PaperProps={{
               sx: {
-                width: 260,
+                width: 272,
                 bgcolor: '#0f172a',
                 borderRight: '1px solid #1e293b',
-                top: 64,
-                height: 'calc(100% - 64px)',
+                top: 68,
+                height: 'calc(100% - 68px)',
               },
             }}
           >
@@ -358,18 +370,19 @@ export const AdminLayout: React.FC = () => {
           component="main"
           sx={{
             flexGrow: 1,
-            p: { xs: 2, sm: 3, md: 4 },
-            ml: !isMobile && sidebarOpen ? '260px' : 0,
+            p: { xs: 2, sm: 3, lg: 4 },
+            ml: !isMobile && sidebarOpen ? '272px' : 0,
             transition: theme.transitions.create(['margin', 'width'], {
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.leavingScreen,
             }),
             minHeight: 'calc(100vh - 64px)',
+            width: '100%',
             maxWidth: '100%',
             overflowX: 'hidden',
           }}
         >
-          <Outlet />
+          <Box sx={{ width: '100%', maxWidth: 1600, mx: 'auto' }}><Outlet /></Box>
         </Box>
       </Box>
     </Box>

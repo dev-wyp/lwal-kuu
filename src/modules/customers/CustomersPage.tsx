@@ -31,6 +31,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useI18n } from '@/i18n/I18nContext';
+import { useEntitlements } from '@/modules/subscription/useEntitlements';
 
 const customerSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -47,8 +48,11 @@ export const CustomersPage: React.FC = () => {
   const { t } = useI18n();
   const { currentOrg, formatCurrency } = useOrg();
   const { showSuccess, showError } = useNotification();
+  const { data: entitlements = [] } = useEntitlements();
   const queryClient = useQueryClient();
   const orgId = currentOrg?.id;
+  const canViewCustomerLedger = entitlements.some((item) => ['customer_ledger', 'customer_debt_tracking'].includes(item.feature_key) && item.is_allowed);
+  const customerTableColSpan = canViewCustomerLedger ? 8 : 3;
 
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -127,7 +131,7 @@ export const CustomersPage: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
             {t("Customer Directory & Credit Ledgers")}</Typography>
@@ -150,7 +154,8 @@ export const CustomersPage: React.FC = () => {
           placeholder={t("Search customers by name...")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ minWidth: 280 }}
+          fullWidth
+          sx={{ width: '100%', maxWidth: 480 }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -170,17 +175,19 @@ export const CustomersPage: React.FC = () => {
                 <TableCell>{t("Customer Name")}</TableCell>
                 <TableCell>{t("Phone Number")}</TableCell>
                 <TableCell align="right">{t("Credit Limit")}</TableCell>
-                <TableCell align="right">{t("Opening Bal")}</TableCell>
-                <TableCell align="right">{t("Confirmed Sales")}</TableCell>
-                <TableCell align="right">{t("Payments")}</TableCell>
-                <TableCell align="right">{t("Current Balance")}</TableCell>
-                <TableCell align="center">{t("Ledger Statement")}</TableCell>
+                {canViewCustomerLedger && <>
+                  <TableCell align="right">{t("Opening Bal")}</TableCell>
+                  <TableCell align="right">{t("Confirmed Sales")}</TableCell>
+                  <TableCell align="right">{t("Payments")}</TableCell>
+                  <TableCell align="right">{t("Current Balance")}</TableCell>
+                  <TableCell align="center">{t("Ledger Statement")}</TableCell>
+                </>}
               </TableRow>
             </TableHead>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={customerTableColSpan} align="center" sx={{ py: 6 }}>
                     <CircularProgress size={32} />
                   </TableCell>
                 </TableRow>
@@ -190,13 +197,14 @@ export const CustomersPage: React.FC = () => {
                     <TableCell sx={{ fontWeight: 600 }}>{c.customer_name}</TableCell>
                     <TableCell>{c.phone || '-'}</TableCell>
                     <TableCell align="right">{formatCurrency(c.credit_limit)}</TableCell>
-                    <TableCell align="right">{formatCurrency(c.opening_balance)}</TableCell>
-                    <TableCell align="right">{formatCurrency(c.total_confirmed_sales)}</TableCell>
-                    <TableCell align="right">{formatCurrency(c.total_payments_received)}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: c.current_balance > 0 ? '#d97706' : 'inherit' }}>
-                      {formatCurrency(c.current_balance)}
-                    </TableCell>
-                    <TableCell align="center">
+                    {canViewCustomerLedger && <>
+                      <TableCell align="right">{formatCurrency(c.opening_balance)}</TableCell>
+                      <TableCell align="right">{formatCurrency(c.total_confirmed_sales)}</TableCell>
+                      <TableCell align="right">{formatCurrency(c.total_payments_received)}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, color: c.current_balance > 0 ? '#d97706' : 'inherit' }}>
+                        {formatCurrency(c.current_balance)}
+                      </TableCell>
+                      <TableCell align="center">
                       <Button
                         size="small"
                         variant="outlined"
@@ -213,12 +221,13 @@ export const CustomersPage: React.FC = () => {
                         }
                       >
                         {t("Statement")}</Button>
-                    </TableCell>
+                      </TableCell>
+                    </>}
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                  <TableCell colSpan={customerTableColSpan} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                     No customers found. Click &quot;Add Customer&quot; to add clients.
                   </TableCell>
                 </TableRow>

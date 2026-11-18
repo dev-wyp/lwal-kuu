@@ -84,7 +84,7 @@ export const PlanManagementPage: React.FC = () => {
     <Typography color="text.secondary" sx={{ mb: 3 }}>{t("Edit published plan prices, limits, and feature access. Changes are recorded in the subscription audit log.")}</Typography>
     <Paper sx={{ p: 3, mb: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-        <TextField select label={t('Plan')} value={selectedId} onChange={(event) => setSelectedId(event.target.value)} sx={{ minWidth: 240 }}>
+        <TextField fullWidth select label={t('Plan')} value={selectedId} onChange={(event) => setSelectedId(event.target.value)} sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { xs: 0, sm: 240 } }}>
           {(plansQuery.data ?? []).map((plan) => <MenuItem value={plan.id} key={plan.id}>{t(plan.name)}</MenuItem>)}
         </TextField>
         <Button variant="outlined" onClick={() => {

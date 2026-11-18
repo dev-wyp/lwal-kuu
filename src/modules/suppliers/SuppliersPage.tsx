@@ -18,9 +18,12 @@ import {
   DialogContent,
   DialogActions,
   Grid,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
+import PrintIcon from '@mui/icons-material/Print';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useOrg } from '@/context/OrgContext';
@@ -29,6 +32,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useI18n } from '@/i18n/I18nContext';
+import { useEntitlements } from '@/modules/subscription/useEntitlements';
+import { SupplierStatementModal } from './SupplierStatementModal';
 
 const supplierSchema = z.object({
   name: z.string().min(1, 'Supplier name is required'),
@@ -45,16 +50,35 @@ export const SuppliersPage: React.FC = () => {
   const { t } = useI18n();
   const { currentOrg, formatCurrency } = useOrg();
   const { showSuccess, showError } = useNotification();
+  const { data: entitlements = [] } = useEntitlements();
   const queryClient = useQueryClient();
   const orgId = currentOrg?.id;
 
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+  const [statementSupplier, setStatementSupplier] = useState<any>(null);
+  const canViewPayables = entitlements.some((item) => item.feature_key === 'supplier_payables' && item.is_allowed);
+  const canPrintStatement = entitlements.some((item) => item.feature_key === 'supplier_statement_pdf' && item.is_allowed);
 
   const { data: suppliers = [], isLoading } = useQuery({
-    queryKey: ['suppliers', orgId, search],
+    queryKey: ['suppliers', orgId, search, canViewPayables],
     queryFn: async () => {
       if (!orgId) return [];
+
+      if (!canViewPayables) {
+        const { data, error } = await supabase.from('suppliers').select('id,name,phone,opening_balance')
+          .eq('organization_id', orgId).eq('is_active', true).ilike('name', `%${search}%`).order('name');
+        if (error) throw error;
+        return (data ?? []).map((supplier) => ({
+          supplier_id: supplier.id,
+          supplier_name: supplier.name,
+          phone: supplier.phone,
+          opening_balance: null,
+          total_received_purchases: null,
+          total_payments_made: null,
+          current_payable: null,
+        }));
+      }
 
       const { data, error } = await supabase
         .from('supplier_balances_summary')
@@ -124,7 +148,7 @@ export const SuppliersPage: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
             {t("Supplier Directory & Accounts Payable")}</Typography>
@@ -147,7 +171,8 @@ export const SuppliersPage: React.FC = () => {
           placeholder={t("Search suppliers by name...")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ minWidth: 280 }}
+          fullWidth
+          sx={{ width: '100%', maxWidth: 480 }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -166,16 +191,19 @@ export const SuppliersPage: React.FC = () => {
               <TableRow>
                 <TableCell>{t("Supplier Name")}</TableCell>
                 <TableCell>{t("Phone")}</TableCell>
-                <TableCell align="right">{t("Opening Bal")}</TableCell>
-                <TableCell align="right">{t("Received Purchases")}</TableCell>
-                <TableCell align="right">{t("Payments Made")}</TableCell>
-                <TableCell align="right">{t("Current Payable")}</TableCell>
+                {canViewPayables && <>
+                  <TableCell align="right">{t("Opening Bal")}</TableCell>
+                  <TableCell align="right">{t("Received Purchases")}</TableCell>
+                  <TableCell align="right">{t("Payments Made")}</TableCell>
+                  <TableCell align="right">{t("Current Payable")}</TableCell>
+                </>}
+                {canPrintStatement && <TableCell align="right">{t('Statement')}</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                    <TableCell colSpan={2 + (canViewPayables ? 4 : 0) + (canPrintStatement ? 1 : 0)} align="center" sx={{ py: 6 }}>
                     <CircularProgress size={32} />
                   </TableCell>
                 </TableRow>
@@ -184,17 +212,22 @@ export const SuppliersPage: React.FC = () => {
                   <TableRow key={s.supplier_id} hover>
                     <TableCell sx={{ fontWeight: 600 }}>{s.supplier_name}</TableCell>
                     <TableCell>{s.phone || '-'}</TableCell>
-                    <TableCell align="right">{formatCurrency(s.opening_balance)}</TableCell>
-                    <TableCell align="right">{formatCurrency(s.total_received_purchases)}</TableCell>
-                    <TableCell align="right">{formatCurrency(s.total_payments_made)}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: s.current_payable > 0 ? '#ef4444' : 'inherit' }}>
-                      {formatCurrency(s.current_payable)}
-                    </TableCell>
+                    {canViewPayables && <>
+                      <TableCell align="right">{formatCurrency(s.opening_balance)}</TableCell>
+                      <TableCell align="right">{formatCurrency(s.total_received_purchases)}</TableCell>
+                      <TableCell align="right">{formatCurrency(s.total_payments_made)}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, color: s.current_payable > 0 ? '#ef4444' : 'inherit' }}>
+                        {formatCurrency(s.current_payable)}
+                      </TableCell>
+                    </>}
+                    {canPrintStatement && <TableCell align="right">
+                      <Tooltip title={t('Print Statement')}><IconButton size="small" onClick={() => setStatementSupplier(s)} aria-label={t('Print Statement')}><PrintIcon fontSize="small" /></IconButton></Tooltip>
+                    </TableCell>}
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                  <TableCell colSpan={2 + (canViewPayables ? 4 : 0) + (canPrintStatement ? 1 : 0)} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                     No suppliers found. Click &quot;Add Supplier&quot; to register vendors.
                   </TableCell>
                 </TableRow>
@@ -203,6 +236,8 @@ export const SuppliersPage: React.FC = () => {
           </Table>
         </TableContainer>
       </Paper>
+
+      {statementSupplier && <SupplierStatementModal supplier={statementSupplier} onClose={() => setStatementSupplier(null)} />}
 
       {/* Add Supplier Modal */}
       <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>

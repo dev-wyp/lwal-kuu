@@ -6,6 +6,7 @@ import {
   MenuItem,
   Stack,
   Table,
+  TableContainer,
   TableBody,
   TableCell,
   TableHead,
@@ -91,20 +92,21 @@ export const LeadsPage: React.FC = () => {
     <Box>
       <Typography variant="h6" sx={{ mb: 2 }}>Leads and trial registrations</Typography>
       {error && <Alert severity="error">{error instanceof Error ? error.message : 'Failed to load leads'}</Alert>}
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 3 }}>
-        <TextField label={t("Name")} {...form.register('full_name')} />
-        <TextField label={t("Email")} {...form.register('email')} />
-        <TextField label="Business type" {...form.register('business_type')} />
-        <TextField select label="Source" value={form.watch('source_platform')} onChange={(e) => form.setValue('source_platform', e.target.value as FormValues['source_platform'])} sx={{ minWidth: 140 }}>
+      <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} sx={{ mb: 3 }}>
+        <TextField fullWidth label={t("Name")} {...form.register('full_name')} />
+        <TextField fullWidth label={t("Email")} {...form.register('email')} />
+        <TextField fullWidth label="Business type" {...form.register('business_type')} />
+        <TextField fullWidth select label="Source" value={form.watch('source_platform')} onChange={(e) => form.setValue('source_platform', e.target.value as FormValues['source_platform'])} sx={{ minWidth: { xs: 0, lg: 140 } }}>
           {['manual', 'website', 'landing', 'facebook', 'tiktok', 'other'].map((s) => (
             <MenuItem key={s} value={s}>{s}</MenuItem>
           ))}
         </TextField>
-        <Button variant="contained" onClick={createLead} disabled={!canManageMarketing}>Add lead</Button>
+        <Button variant="contained" onClick={createLead} disabled={!canManageMarketing} sx={{ flexShrink: 0 }}>Add lead</Button>
       </Stack>
       {data.length === 0 && <Alert severity="info">No leads yet. Trial signups with UTM parameters appear here after onboarding.</Alert>}
       {data.length > 0 && (
-        <Table size="small">
+        <TableContainer>
+        <Table size="small" sx={{ minWidth: 640 }}>
           <TableHead>
             <TableRow>
               <TableCell>{t("Name")}</TableCell>
@@ -140,6 +142,7 @@ export const LeadsPage: React.FC = () => {
             ))}
           </TableBody>
         </Table>
+        </TableContainer>
       )}
     </Box>
   );

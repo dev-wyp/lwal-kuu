@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Box, useMediaQuery, useTheme, CircularProgress, Typography, Button } from '@mui/material';
 import { Outlet, Navigate, useNavigate } from 'react-router-dom';
 import { Navbar } from './Navbar';
@@ -13,9 +13,17 @@ export const AppLayout: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const previousMobile = useRef(isMobile);
   const { user, profile, loading: authLoading } = useAuth();
   const { currentOrg, loading: orgLoading } = useOrg();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (previousMobile.current !== isMobile) {
+      setSidebarOpen(!isMobile);
+      previousMobile.current = isMobile;
+    }
+  }, [isMobile]);
 
   const handleToggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -67,7 +75,7 @@ export const AppLayout: React.FC = () => {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f8fafc' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default' }}>
       <Navbar onToggleSidebar={handleToggleSidebar} />
 
       <Box sx={{ display: 'flex', flexGrow: 1, position: 'relative' }}>
@@ -77,18 +85,21 @@ export const AppLayout: React.FC = () => {
           component="main"
           sx={{
             flexGrow: 1,
-            p: { xs: 2, sm: 3, md: 4 },
-            ml: !isMobile && sidebarOpen ? '250px' : 0,
+            p: { xs: 2, sm: 3, lg: 4 },
+            ml: !isMobile && sidebarOpen ? '272px' : 0,
             transition: theme.transitions.create(['margin', 'width'], {
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.leavingScreen,
             }),
             minHeight: 'calc(100vh - 64px)',
+            width: '100%',
             maxWidth: '100%',
             overflowX: 'hidden',
           }}
         >
-          <Outlet />
+          <Box sx={{ width: '100%', maxWidth: 1600, mx: 'auto' }}>
+            <Outlet />
+          </Box>
         </Box>
       </Box>
     </Box>

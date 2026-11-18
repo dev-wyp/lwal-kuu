@@ -56,7 +56,7 @@ begin
     select 1 from information_schema.columns 
     where table_schema = 'public' and table_name = 'organizations' and column_name = 'slug'
   ) then
-    drop table public.organizations cascade;
+    raise exception 'Refusing destructive legacy schema replacement; migrate existing business data before applying this schema.';
   end if;
 end $$;
 

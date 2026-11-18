@@ -13,7 +13,7 @@ begin
     select 1 from information_schema.columns 
     where table_schema = 'public' and table_name = 'sales' and column_name = 'organization_id'
   ) then
-    drop table public.sales cascade;
+    raise exception 'Refusing destructive legacy schema replacement; migrate existing business data before applying this schema.';
   end if;
 
   if exists (
@@ -23,7 +23,7 @@ begin
     select 1 from information_schema.columns 
     where table_schema = 'public' and table_name = 'sale_items' and column_name = 'organization_id'
   ) then
-    drop table public.sale_items cascade;
+    raise exception 'Refusing destructive legacy schema replacement; migrate existing business data before applying this schema.';
   end if;
 
   if exists (
@@ -33,7 +33,7 @@ begin
     select 1 from information_schema.columns 
     where table_schema = 'public' and table_name = 'payments' and column_name = 'organization_id'
   ) then
-    drop table public.payments cascade;
+    raise exception 'Refusing destructive legacy schema replacement; migrate existing business data before applying this schema.';
   end if;
 
   if exists (
@@ -43,7 +43,7 @@ begin
     select 1 from information_schema.columns 
     where table_schema = 'public' and table_name = 'payment_allocations' and column_name = 'organization_id'
   ) then
-    drop table public.payment_allocations cascade;
+    raise exception 'Refusing destructive legacy schema replacement; migrate existing business data before applying this schema.';
   end if;
 end $$;
 

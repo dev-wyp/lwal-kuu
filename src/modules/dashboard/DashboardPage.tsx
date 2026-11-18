@@ -15,6 +15,7 @@ import {
   Paper,
   CircularProgress,
   Button,
+  Alert,
 } from '@mui/material';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
@@ -30,6 +31,7 @@ import { supabase } from '@/lib/supabase';
 import { useOrg } from '@/context/OrgContext';
 import { useNavigate } from 'react-router-dom';
 import { useI18n } from '@/i18n/I18nContext';
+import { localDateString } from '@/lib/dates';
 
 export const DashboardPage: React.FC = () => {
   const { t } = useI18n();
@@ -38,69 +40,74 @@ export const DashboardPage: React.FC = () => {
   const orgId = currentOrg?.id;
 
   // 1. Fetch Dashboard Metrics
-  const { data: metrics, isLoading } = useQuery({
+  const { data: metrics, isLoading, isError, refetch } = useQuery({
     queryKey: ['dashboard_metrics', orgId],
     queryFn: async () => {
       if (!orgId) return null;
 
-      const today = new Date().toISOString().split('T')[0];
-      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-        .toISOString()
-        .split('T')[0];
+      const now = new Date();
+      const today = localDateString(now);
+      const startOfMonth = localDateString(new Date(now.getFullYear(), now.getMonth(), 1));
 
       // Today's Sales
-      const { data: todaySales } = await supabase
+      const { data: todaySales, error: todaySalesError } = await supabase
         .from('sales')
         .select('total_amount, total_cost')
         .eq('organization_id', orgId)
         .eq('status', 'confirmed')
         .eq('sale_date', today);
+      if (todaySalesError) throw todaySalesError;
 
       const todayTotal = todaySales?.reduce((acc, s) => acc + Number(s.total_amount), 0) || 0;
       const todayProfit = todaySales?.reduce((acc, s) => acc + (Number(s.total_amount) - Number(s.total_cost)), 0) || 0;
 
       // Monthly Sales
-      const { data: monthSales } = await supabase
+      const { data: monthSales, error: monthSalesError } = await supabase
         .from('sales')
         .select('total_amount')
         .eq('organization_id', orgId)
         .eq('status', 'confirmed')
         .gte('sale_date', startOfMonth);
+      if (monthSalesError) throw monthSalesError;
 
       const monthTotal = monthSales?.reduce((acc, s) => acc + Number(s.total_amount), 0) || 0;
 
       // Customer Receivables (Total outstanding)
-      const { data: customerBalances } = await supabase
+      const { data: customerBalances, error: customerBalancesError } = await supabase
         .from('customer_balances_summary')
         .select('current_balance')
         .eq('organization_id', orgId);
+      if (customerBalancesError) throw customerBalancesError;
 
       const totalReceivables = customerBalances?.reduce((acc, c) => acc + Math.max(0, Number(c.current_balance)), 0) || 0;
 
       // Supplier Payables
-      const { data: supplierBalances } = await supabase
+      const { data: supplierBalances, error: supplierBalancesError } = await supabase
         .from('supplier_balances_summary')
         .select('current_payable')
         .eq('organization_id', orgId);
+      if (supplierBalancesError) throw supplierBalancesError;
 
       const totalPayables = supplierBalances?.reduce((acc, s) => acc + Math.max(0, Number(s.current_payable)), 0) || 0;
 
       // Current Stock Value & Low Stock Count
-      const { data: stockItems } = await supabase
+      const { data: stockItems, error: stockItemsError } = await supabase
         .from('product_stock_balances')
         .select('stock_value, is_low_stock')
         .eq('organization_id', orgId);
+      if (stockItemsError) throw stockItemsError;
 
       const totalStockVal = stockItems?.reduce((acc, item) => acc + Number(item.stock_value || 0), 0) || 0;
       const lowStockCount = stockItems?.filter((item) => item.is_low_stock).length || 0;
 
       // Recent 5 Sales Invoices
-      const { data: recentSales } = await supabase
+      const { data: recentSales, error: recentSalesError } = await supabase
         .from('sales')
         .select('id, invoice_number, sale_date, total_amount, paid_amount, payment_status, status, customers(name)')
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false })
         .limit(5);
+      if (recentSalesError) throw recentSalesError;
 
       return {
         todayTotal,
@@ -125,23 +132,34 @@ export const DashboardPage: React.FC = () => {
     );
   }
 
+  if (isError) {
+    return (
+      <Alert
+        severity="error"
+        action={<Button color="inherit" size="small" onClick={() => void refetch()}>{t('Try again')}</Button>}
+      >
+        {t('We could not load your shop summary. Check your connection and try again.')}
+      </Alert>
+    );
+  }
+
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <div>
-          <Typography variant="h4" sx={{ fontWeight: 800 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, mb: 3, flexWrap: 'wrap' }}>
+        <Box>
+          <Typography variant="h4" sx={{ fontWeight: 750, fontSize: { xs: 25, sm: 30 } }}>
             {t("Business Overview")}</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {t("Live operations and financial metrics for") + " "}{currentOrg?.name}
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            {t("A quick look at today’s sales, customer balances, and stock.")}
           </Typography>
-        </div>
+        </Box>
         <Button
           variant="contained"
           startIcon={<PointOfSaleIcon />}
           onClick={() => navigate('/app/sales')}
-          sx={{ borderRadius: 2, bgcolor: '#0284c7', '&:hover': { bgcolor: '#0369a1' } }}
+          sx={{ borderRadius: 2.5, px: 2.25, bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' } }}
         >
-          {t("Open POS")}</Button>
+          {t("Start a Sale")}</Button>
       </Box>
 
       {/* Guided Onboarding Checklist for New Shop */}
@@ -153,32 +171,37 @@ export const DashboardPage: React.FC = () => {
             mb: 4,
             borderRadius: 3,
             bgcolor: '#ffffff',
-            border: '1px solid #bae6fd',
-            boxShadow: '0 4px 20px -2px rgba(2, 132, 199, 0.08)',
+            border: '1px solid #CDE6DF',
+            boxShadow: '0 4px 20px -2px rgba(23, 107, 91, 0.07)',
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <CheckCircleOutlineIcon sx={{ color: '#0284c7', fontSize: 24 }} />
-            <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a' }}>
-              {t("Welcome to Lwal Kuu! Quick Setup Checklist")}</Typography>
-            <Chip label={t("Guided Onboarding")} size="small" sx={{ bgcolor: '#e0f2fe', color: '#0369a1', fontWeight: 700, height: 20, fontSize: 10 }} />
+            <CheckCircleOutlineIcon sx={{ color: 'primary.main', fontSize: 24 }} />
+            <Typography variant="h6" sx={{ fontWeight: 750, color: 'text.primary' }}>
+              {t("Welcome! Set up your shop")}</Typography>
+            <Chip label={t("4 easy steps")} size="small" sx={{ bgcolor: '#E7F3F0', color: '#14594C' }} />
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-            {t("Follow these 4 automated steps to initialize your shop catalog, stock ledger, and POS billing:")}</Typography>
+            {t("Complete these steps to add your items and start recording sales.")}</Typography>
 
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={3}>
               <Paper
+                component="button"
                 variant="outlined"
                 sx={{
                   p: 2,
+                  width: '100%',
+                  textAlign: 'left',
+                  appearance: 'none',
                   borderRadius: 2,
                   cursor: 'pointer',
-                  '&:hover': { borderColor: '#0284c7', bgcolor: '#f8fafc' },
+                  '&:hover': { borderColor: 'primary.main', bgcolor: '#F6FAF9', transform: 'translateY(-1px)' },
+                  transition: 'transform 160ms ease, border-color 160ms ease, background-color 160ms ease',
                 }}
                 onClick={() => navigate('/app/categories')}
               >
-                <CategoryIcon sx={{ color: '#0284c7', mb: 1 }} />
+                <CategoryIcon sx={{ color: 'primary.main', mb: 1 }} />
                 <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                   {t("1. Setup Categories")}</Typography>
                 <Typography variant="caption" color="text.secondary">
@@ -189,16 +212,21 @@ export const DashboardPage: React.FC = () => {
 
             <Grid item xs={12} sm={6} md={3}>
               <Paper
+                component="button"
                 variant="outlined"
                 sx={{
                   p: 2,
+                  width: '100%',
+                  textAlign: 'left',
+                  appearance: 'none',
                   borderRadius: 2,
                   cursor: 'pointer',
-                  '&:hover': { borderColor: '#0284c7', bgcolor: '#f8fafc' },
+                  '&:hover': { borderColor: 'primary.main', bgcolor: '#F6FAF9', transform: 'translateY(-1px)' },
+                  transition: 'transform 160ms ease, border-color 160ms ease, background-color 160ms ease',
                 }}
                 onClick={() => navigate('/app/products')}
               >
-                <InventoryIcon sx={{ color: '#6366f1', mb: 1 }} />
+                <InventoryIcon sx={{ color: '#3978D4', mb: 1 }} />
                 <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                   {t("2. Add / Import Products")}</Typography>
                 <Typography variant="caption" color="text.secondary">
@@ -209,12 +237,17 @@ export const DashboardPage: React.FC = () => {
 
             <Grid item xs={12} sm={6} md={3}>
               <Paper
+                component="button"
                 variant="outlined"
                 sx={{
                   p: 2,
+                  width: '100%',
+                  textAlign: 'left',
+                  appearance: 'none',
                   borderRadius: 2,
                   cursor: 'pointer',
-                  '&:hover': { borderColor: '#0284c7', bgcolor: '#f8fafc' },
+                  '&:hover': { borderColor: 'primary.main', bgcolor: '#F6FAF9', transform: 'translateY(-1px)' },
+                  transition: 'transform 160ms ease, border-color 160ms ease, background-color 160ms ease',
                 }}
                 onClick={() => navigate('/app/customers')}
               >
@@ -229,12 +262,17 @@ export const DashboardPage: React.FC = () => {
 
             <Grid item xs={12} sm={6} md={3}>
               <Paper
+                component="button"
                 variant="outlined"
                 sx={{
                   p: 2,
+                  width: '100%',
+                  textAlign: 'left',
+                  appearance: 'none',
                   borderRadius: 2,
                   cursor: 'pointer',
-                  '&:hover': { borderColor: '#0284c7', bgcolor: '#f8fafc' },
+                  '&:hover': { borderColor: 'primary.main', bgcolor: '#F6FAF9', transform: 'translateY(-1px)' },
+                  transition: 'transform 160ms ease, border-color 160ms ease, background-color 160ms ease',
                 }}
                 onClick={() => navigate('/app/sales')}
               >
@@ -251,17 +289,17 @@ export const DashboardPage: React.FC = () => {
       )}
 
       {/* KPI Cards */}
-      <Grid container spacing={2.5} sx={{ mb: 4 }}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#ffffff', borderRadius: 3 }}>
+          <Card sx={{ bgcolor: '#ffffff', height: '100%' }}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b' }}>
-                  TODAY&apos;S SALES
+                <Typography variant="body2" sx={{ fontWeight: 650, color: 'text.secondary' }}>
+                  {t("Sales today")}
                 </Typography>
-                <TrendingUpIcon sx={{ color: '#10b981', fontSize: 20 }} />
+                <TrendingUpIcon sx={{ color: 'success.main', fontSize: 20 }} />
               </Box>
-              <Typography variant="h5" sx={{ fontWeight: 800 }}>
+              <Typography variant="h5" sx={{ fontWeight: 750, fontSize: { xs: 21, sm: 24 }, overflowWrap: 'anywhere' }}>
                 {formatCurrency(metrics?.todayTotal || 0)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
@@ -272,14 +310,14 @@ export const DashboardPage: React.FC = () => {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#ffffff', borderRadius: 3 }}>
+          <Card sx={{ bgcolor: '#ffffff', height: '100%' }}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b' }}>
-                  {t("MONTHLY SALES")}</Typography>
-                <ShoppingCartIcon sx={{ color: '#0284c7', fontSize: 20 }} />
+                <Typography variant="body2" sx={{ fontWeight: 650, color: 'text.secondary' }}>
+                  {t("Sales this month")}</Typography>
+                <ShoppingCartIcon sx={{ color: 'secondary.main', fontSize: 20 }} />
               </Box>
-              <Typography variant="h5" sx={{ fontWeight: 800 }}>
+              <Typography variant="h5" sx={{ fontWeight: 750, fontSize: { xs: 21, sm: 24 }, overflowWrap: 'anywhere' }}>
                 {formatCurrency(metrics?.monthTotal || 0)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
@@ -289,14 +327,14 @@ export const DashboardPage: React.FC = () => {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#ffffff', borderRadius: 3 }}>
+          <Card sx={{ bgcolor: '#ffffff', height: '100%' }}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b' }}>
-                  {t("CUSTOMER RECEIVABLES")}</Typography>
-                <AccountBalanceWalletIcon sx={{ color: '#f59e0b', fontSize: 20 }} />
+                <Typography variant="body2" sx={{ fontWeight: 650, color: 'text.secondary' }}>
+                  {t("Customers owe")}</Typography>
+                <AccountBalanceWalletIcon sx={{ color: 'warning.main', fontSize: 20 }} />
               </Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#d97706' }}>
+              <Typography variant="h5" sx={{ fontWeight: 750, color: 'warning.dark', fontSize: { xs: 21, sm: 24 }, overflowWrap: 'anywhere' }}>
                 {formatCurrency(metrics?.totalReceivables || 0)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
@@ -306,21 +344,21 @@ export const DashboardPage: React.FC = () => {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: '#ffffff', borderRadius: 3 }}>
+          <Card sx={{ bgcolor: '#ffffff', height: '100%' }}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b' }}>
-                  {t("TOTAL STOCK VALUE")}</Typography>
-                <InventoryIcon sx={{ color: '#8b5cf6', fontSize: 20 }} />
+                <Typography variant="body2" sx={{ fontWeight: 650, color: 'text.secondary' }}>
+                  {t("Stock value")}</Typography>
+                <InventoryIcon sx={{ color: 'primary.main', fontSize: 20 }} />
               </Box>
-              <Typography variant="h5" sx={{ fontWeight: 800 }}>
+              <Typography variant="h5" sx={{ fontWeight: 750, fontSize: { xs: 21, sm: 24 }, overflowWrap: 'anywhere' }}>
                 {formatCurrency(metrics?.totalStockVal || 0)}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 {metrics && metrics.lowStockCount > 0 ? (
                   <Chip
                     icon={<WarningAmberIcon sx={{ fontSize: '14px !important' }} />}
-                    label={`${metrics.lowStockCount} low stock`}
+                    label={`${metrics.lowStockCount} ${t('items need restocking')}`}
                     size="small"
                     color="error"
                     sx={{ height: 20, fontSize: 10, fontWeight: 700 }}
@@ -336,16 +374,16 @@ export const DashboardPage: React.FC = () => {
       </Grid>
 
       {/* Recent Sales Invoices */}
-      <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
+      <Paper elevation={0} sx={{ p: { xs: 1.5, sm: 2.5 }, borderRadius: 3, border: '1px solid #e3eaec', bgcolor: '#ffffff' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            {t("Recent Sales Invoices")}</Typography>
+            {t("Latest sales")}</Typography>
           <Button size="small" onClick={() => navigate('/app/sales')}>
-            {t("View All Sales")}</Button>
+            {t("See all sales")}</Button>
         </Box>
 
         <TableContainer>
-          <Table size="small">
+          <Table size="small" sx={{ minWidth: 760 }}>
             <TableHead>
               <TableRow>
                 <TableCell>{t("Invoice #")}</TableCell>
@@ -396,7 +434,7 @@ export const DashboardPage: React.FC = () => {
               ) : (
                 <TableRow>
                   <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                    No sales invoices recorded yet. Click &quot;Open POS&quot; to make your first sale.
+                    {t('No sales have been recorded yet. Choose “Start a Sale” to record your first sale.')}
                   </TableCell>
                 </TableRow>
               )}

@@ -254,7 +254,8 @@ export const ProductsPage: React.FC = () => {
             placeholder={t("Search by SKU or Name...")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            sx={{ minWidth: 260 }}
+            fullWidth
+            sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { xs: 0, sm: 260 }, flex: { sm: '1 1 260px' } }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -270,7 +271,8 @@ export const ProductsPage: React.FC = () => {
             label={t("Category")}
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            sx={{ minWidth: 180 }}
+            fullWidth
+            sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { xs: 0, sm: 180 }, flex: { sm: '0 1 220px' } }}
           >
             <MenuItem value="">{t("All Categories")}</MenuItem>
             {categories.map((c) => (

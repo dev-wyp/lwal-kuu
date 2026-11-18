@@ -13,7 +13,7 @@ begin
     select 1 from information_schema.columns 
     where table_schema = 'public' and table_name = 'subscriptions' and column_name = 'organization_id'
   ) then
-    drop table public.subscriptions cascade;
+    raise exception 'Refusing destructive legacy schema replacement; migrate existing business data before applying this schema.';
   end if;
 end $$;
 

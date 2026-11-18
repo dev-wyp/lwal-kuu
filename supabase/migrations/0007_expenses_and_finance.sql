@@ -13,7 +13,7 @@ begin
     select 1 from information_schema.columns 
     where table_schema = 'public' and table_name = 'expense_categories' and column_name = 'organization_id'
   ) then
-    drop table public.expense_categories cascade;
+    raise exception 'Refusing destructive legacy schema replacement; migrate existing business data before applying this schema.';
   end if;
 
   if exists (
@@ -23,7 +23,7 @@ begin
     select 1 from information_schema.columns 
     where table_schema = 'public' and table_name = 'expenses' and column_name = 'organization_id'
   ) then
-    drop table public.expenses cascade;
+    raise exception 'Refusing destructive legacy schema replacement; migrate existing business data before applying this schema.';
   end if;
 end $$;
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Typography,
@@ -42,6 +42,7 @@ interface CartItem {
   sku: string;
   quantity: number;
   unitPrice: number;
+  unitCost: number;
   availableStock: number;
 }
 
@@ -54,6 +55,7 @@ export const SalesPage: React.FC = () => {
   const { data: entitlements = [] } = useEntitlements();
   const canUseCredit = entitlements.some((item) => item.feature_key === 'credit_sales' && item.is_allowed);
   const canUsePartial = entitlements.some((item) => item.feature_key === 'partial_payments' && item.is_allowed);
+  const canEstimateProfit = entitlements.some((item) => item.feature_key === 'profit_estimation' && item.is_allowed);
   const orgId = currentOrg?.id;
 
   // POS State
@@ -63,6 +65,7 @@ export const SalesPage: React.FC = () => {
   const [paymentType, setPaymentType] = useState<'cash' | 'partial' | 'credit'>('cash');
   const [paidAmount, setPaidAmount] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [selectedBranchId, setSelectedBranchId] = useState('');
   const [confirming, setConfirming] = useState(false);
 
   // Modals
@@ -87,21 +90,36 @@ export const SalesPage: React.FC = () => {
     enabled: Boolean(orgId),
   });
 
-  // 2. Fetch Products with current stock
-  const { data: products = [] } = useQuery({
-    queryKey: ['products_for_pos', orgId],
+  const { data: branches = [] } = useQuery({
+    queryKey: ['branches', orgId],
     queryFn: async () => {
       if (!orgId) return [];
-      const { data, error } = await supabase
-        .from('product_stock_balances')
-        .select('*')
-        .eq('organization_id', orgId)
+      const { data, error } = await supabase.from('branches' as any).select('id,name,is_default')
+        .eq('organization_id', orgId).eq('is_active', true).order('is_default', { ascending: false }).order('name');
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: Boolean(orgId),
+  });
+  useEffect(() => {
+    if (branches.length && !branches.some((branch: any) => branch.id === selectedBranchId)) {
+      setSelectedBranchId(branches.find((branch: any) => branch.is_default)?.id ?? branches[0].id);
+    }
+  }, [branches, selectedBranchId]);
+
+  // 2. Fetch Products with current stock
+  const { data: products = [] } = useQuery({
+    queryKey: ['products_for_pos', orgId, selectedBranchId],
+    queryFn: async () => {
+      if (!orgId || !selectedBranchId) return [];
+      const { data, error } = await (supabase as any).from('branch_stock_balances').select('*')
+        .eq('organization_id', orgId).eq('branch_id', selectedBranchId)
         .gt('stock_on_hand', 0)
         .order('name');
       if (error) throw error;
       return data || [];
     },
-    enabled: Boolean(orgId),
+    enabled: Boolean(orgId && selectedBranchId),
   });
 
   // 3. Fetch Sales History
@@ -151,6 +169,7 @@ export const SalesPage: React.FC = () => {
           sku: prod.sku,
           quantity: 1,
           unitPrice: Number(prod.sale_price),
+          unitCost: Number(prod.average_cost),
           availableStock: Number(prod.stock_on_hand),
         },
       ]);
@@ -174,6 +193,7 @@ export const SalesPage: React.FC = () => {
 
   const subtotal = cart.reduce((acc, it) => acc + (it.quantity * it.unitPrice), 0);
   const totalDue = Math.max(0, subtotal - discountAmount);
+  const estimatedGrossProfit = cart.reduce((acc, item) => acc + item.quantity * (item.unitPrice - item.unitCost), 0) - discountAmount;
 
   const handleConfirmSale = async () => {
     if (!currentOrg) return;
@@ -210,6 +230,7 @@ export const SalesPage: React.FC = () => {
         .from('sales')
         .insert({
           organization_id: currentOrg.id,
+          branch_id: selectedBranchId,
           customer_id: selectedCustomerId || null,
           invoice_number: invoiceNum,
           status: 'draft',
@@ -270,6 +291,7 @@ export const SalesPage: React.FC = () => {
       // Refresh queries
       queryClient.invalidateQueries({ queryKey: ['sales_history'] });
       queryClient.invalidateQueries({ queryKey: ['products_for_pos'] });
+      queryClient.invalidateQueries({ queryKey: ['branch_stock_balances'] });
       queryClient.invalidateQueries({ queryKey: ['product_stock_balances'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard_metrics'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
@@ -296,6 +318,8 @@ export const SalesPage: React.FC = () => {
       showSuccess(`Sale ${saleToVoid.invoice_number} reversed and stock returned to ledger!`);
       queryClient.invalidateQueries({ queryKey: ['sales_history'] });
       queryClient.invalidateQueries({ queryKey: ['stock_balances'] });
+      queryClient.invalidateQueries({ queryKey: ['branch_stock_balances'] });
+      queryClient.invalidateQueries({ queryKey: ['products_for_pos'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard_metrics'] });
       setVoidDialogOpen(false);
       setSaleToVoid(null);
@@ -315,6 +339,12 @@ export const SalesPage: React.FC = () => {
         <Typography variant="body2" color="text.secondary">
           {t("Fast checkout, stock-aware cart, multi-payment options, and invoice printing.")}</Typography>
       </Box>
+
+      {branches.length > 1 && <Box sx={{ mb: 2, maxWidth: 340 }}>
+        <TextField select fullWidth size="small" label={t('Sales Branch')} value={selectedBranchId} onChange={(event) => { setSelectedBranchId(event.target.value); setCart([]); }}>
+          {branches.map((branch: any) => <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>)}
+        </TextField>
+      </Box>}
 
       {/* POS Register Section */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -448,6 +478,10 @@ export const SalesPage: React.FC = () => {
               <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{t("Total Due:")}</Typography>
               <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a' }}>{formatCurrency(totalDue)}</Typography>
             </Box>
+            {canEstimateProfit && <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+              <Typography variant="body2" color="text.secondary">{t('Estimated Gross Profit')}:</Typography>
+              <Typography variant="body2" fontWeight={700} color={estimatedGrossProfit >= 0 ? 'success.main' : 'error.main'}>{formatCurrency(estimatedGrossProfit)}</Typography>
+            </Box>}
 
             {/* Payment Options */}
             <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b', display: 'block', mb: 1 }}>

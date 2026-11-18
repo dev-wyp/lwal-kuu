@@ -190,6 +190,7 @@ export const PlatformAdminPage: React.FC = () => {
   });
 
   const [cronRunning, setCronRunning] = useState(false);
+  const [dispatchingOutbox, setDispatchingOutbox] = useState(false);
   const [cronResult, setCronResult] = useState<any>(null);
 
   const handleTriggerAutomations = async () => {
@@ -197,7 +198,9 @@ export const PlatformAdminPage: React.FC = () => {
       setCronRunning(true);
       const { data, error } = await supabase.rpc('cron_run_all_automations');
       if (error) throw error;
-      setCronResult(data);
+      const { data: debtReminderData, error: debtReminderError } = await supabase.rpc('cron_queue_debt_reminders' as any);
+      if (debtReminderError) throw debtReminderError;
+      setCronResult({ ...(data as any), debt_reminders: debtReminderData });
       showSuccess('All background automation cron jobs executed successfully!');
       queryClient.invalidateQueries({ queryKey: ['platform_outbox'] });
       queryClient.invalidateQueries({ queryKey: ['platform_all_orgs'] });
@@ -207,6 +210,20 @@ export const PlatformAdminPage: React.FC = () => {
       showError(err.message || 'Failed to execute automation jobs');
     } finally {
       setCronRunning(false);
+    }
+  };
+
+  const handleDispatchOutbox = async () => {
+    try {
+      setDispatchingOutbox(true);
+      const { data, error } = await supabase.functions.invoke('dispatch-notifications');
+      if (error) throw error;
+      showSuccess(`Email delivery finished: ${data.sent} sent, ${data.failed} failed.`);
+      await queryClient.invalidateQueries({ queryKey: ['platform_outbox'] });
+    } catch (err: any) {
+      showError(err.message || 'Could not deliver queued notifications.');
+    } finally {
+      setDispatchingOutbox(false);
     }
   };
 
@@ -428,7 +445,10 @@ export const PlatformAdminPage: React.FC = () => {
         <Tabs
           value={currentTabIndex}
           onChange={handleTabChange}
-          sx={{ px: 2, borderBottom: '1px solid #e2e8f0', bgcolor: '#f8fafc' }}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+          sx={{ px: { xs: 0.5, sm: 2 }, borderBottom: '1px solid #e2e8f0', bgcolor: '#f8fafc' }}
         >
           <Tab label={`Tenant Organizations (${allOrgs.length})`} sx={{ fontWeight: 600 }} />
           <Tab label={`Subscriptions & Approvals (${subEvents.length})`} sx={{ fontWeight: 600 }} />
@@ -447,7 +467,7 @@ export const PlatformAdminPage: React.FC = () => {
                 placeholder="Search by organization name or slug..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                sx={{ minWidth: 300, flexGrow: 1 }}
+                sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { xs: 0, sm: 300 }, maxWidth: '100%', flexGrow: 1 }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -457,7 +477,7 @@ export const PlatformAdminPage: React.FC = () => {
                 }}
               />
 
-              <FormControl size="small" sx={{ minWidth: 150 }}>
+              <FormControl size="small" sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { xs: 0, sm: 150 } }}>
                 <InputLabel>{t("Status")}</InputLabel>
                 <Select
                   value={statusFilter}
@@ -777,6 +797,11 @@ export const PlatformAdminPage: React.FC = () => {
                 </Typography>
               </div>
 
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Button variant="outlined" startIcon={dispatchingOutbox ? <CircularProgress size={18} /> : <PlayArrowIcon />}
+                onClick={handleDispatchOutbox} disabled={dispatchingOutbox} sx={{ borderRadius: 2, fontWeight: 700 }}>
+                {dispatchingOutbox ? 'Sending Email...' : 'Send Queued Emails'}
+              </Button>
               <Button
                 variant="contained"
                 color="error"
@@ -787,6 +812,7 @@ export const PlatformAdminPage: React.FC = () => {
               >
                 {cronRunning ? 'Executing Crons...' : 'Trigger All Automations Now'}
               </Button>
+              </Box>
             </Box>
 
             {cronResult && (
@@ -800,6 +826,7 @@ export const PlatformAdminPage: React.FC = () => {
                   &bull; Low Stock Alerts: {cronResult.low_stock_alerts?.queued_low_stock_alerts || 0} queued<br />
                   &bull; Renewal Notices: {cronResult.renewal_reminders?.queued_renewal_reminders || 0} queued<br />
                   &bull; Weekly Summaries: {cronResult.weekly_summaries?.queued_weekly_summaries || 0} queued
+                  <br />&bull; Customer Debt Reminders: {cronResult.debt_reminders?.queued_debt_reminders || 0} queued
                 </Typography>
               </Alert>
             )}

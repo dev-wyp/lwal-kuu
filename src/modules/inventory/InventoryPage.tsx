@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Typography,
@@ -29,16 +29,20 @@ import { supabase } from '@/lib/supabase';
 import { useOrg } from '@/context/OrgContext';
 import { useNotification } from '@/context/NotificationContext';
 import { useI18n } from '@/i18n/I18nContext';
+import { useEntitlements } from '@/modules/subscription/useEntitlements';
 
 export const InventoryPage: React.FC = () => {
   const { t } = useI18n();
   const { currentOrg, formatCurrency } = useOrg();
   const { showSuccess, showError } = useNotification();
+  const { data: entitlements = [] } = useEntitlements();
   const queryClient = useQueryClient();
   const orgId = currentOrg?.id;
+  const canAdjustStock = entitlements.some((item) => item.feature_key === 'stock_adjustment' && item.is_allowed);
 
   const [currentTab, setCurrentTab] = useState(0);
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
+  const [branchId, setBranchId] = useState('');
 
   // Adjustment form state
   const [adjustProductId, setAdjustProductId] = useState('');
@@ -47,20 +51,40 @@ export const InventoryPage: React.FC = () => {
   const [adjustNotes, setAdjustNotes] = useState('');
   const [adjusting, setAdjusting] = useState(false);
 
+  const { data: branches = [] } = useQuery({
+    queryKey: ['branches', orgId],
+    queryFn: async () => {
+      if (!orgId) return [];
+      const { data, error } = await supabase.from('branches' as any).select('id, name, is_default')
+        .eq('organization_id', orgId).eq('is_active', true).order('is_default', { ascending: false }).order('name');
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: Boolean(orgId),
+  });
+
+  useEffect(() => {
+    if (!branches.length) return;
+    setBranchId((current) => branches.some((branch: any) => branch.id === current)
+      ? current
+      : (branches.find((branch: any) => branch.is_default) ?? branches[0]).id);
+  }, [branches]);
+
   // 1. Fetch Current Stock Balances
   const { data: stockBalances = [], isLoading: balancesLoading } = useQuery({
     queryKey: ['stock_balances', orgId],
     queryFn: async () => {
       if (!orgId) return [];
       const { data, error } = await supabase
-        .from('product_stock_balances')
+        .from('branch_stock_balances' as any)
         .select('*')
         .eq('organization_id', orgId)
-        .order('name');
+        .eq('branch_id', branchId)
+        .order('product_name');
       if (error) throw error;
       return data || [];
     },
-    enabled: Boolean(orgId),
+    enabled: Boolean(orgId && branchId),
   });
 
   // 2. Fetch Stock Movements Ledger
@@ -75,12 +99,13 @@ export const InventoryPage: React.FC = () => {
           products(sku, name, units(code))
         `)
         .eq('organization_id', orgId)
+        .eq('branch_id', branchId)
         .order('created_at', { ascending: false })
         .limit(100);
       if (error) throw error;
       return data || [];
     },
-    enabled: Boolean(orgId),
+    enabled: Boolean(orgId && branchId),
   });
 
   const handleCreateAdjustment = async () => {
@@ -91,12 +116,13 @@ export const InventoryPage: React.FC = () => {
 
     try {
       setAdjusting(true);
-      const { error } = await supabase.rpc('create_stock_adjustment', {
+      const { error } = await supabase.rpc('create_stock_adjustment_at_branch' as any, {
         p_org_id: currentOrg.id,
         p_product_id: adjustProductId,
         p_quantity_delta: adjustDelta,
         p_reason: adjustReason,
         p_notes: adjustNotes || null,
+        p_branch_id: branchId,
       });
 
       if (error) throw error;
@@ -104,6 +130,8 @@ export const InventoryPage: React.FC = () => {
       showSuccess('Stock adjustment ledger entry posted successfully');
       queryClient.invalidateQueries({ queryKey: ['stock_balances'] });
       queryClient.invalidateQueries({ queryKey: ['stock_movements'] });
+      queryClient.invalidateQueries({ queryKey: ['branch_stock_balances'] });
+      queryClient.invalidateQueries({ queryKey: ['products_for_pos'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard_metrics'] });
       setAdjustModalOpen(false);
       setAdjustDelta(0);
@@ -117,14 +145,14 @@ export const InventoryPage: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <div>
           <Typography variant="h4" sx={{ fontWeight: 800 }}>
             {t("Inventory Ledger & Balances")}</Typography>
           <Typography variant="body2" color="text.secondary">
             {t("Immutable movement ledger, real-time stock on hand, and administrative adjustments.")}</Typography>
         </div>
-        <Button
+        {canAdjustStock && <Button
           variant="contained"
           startIcon={<TuneIcon />}
           onClick={() => {
@@ -133,14 +161,21 @@ export const InventoryPage: React.FC = () => {
           }}
           sx={{ borderRadius: 2, bgcolor: '#0f172a', fontWeight: 600 }}
         >
-          {t("Stock Adjustment")}</Button>
+          {t("Stock Adjustment")}</Button>}
       </Box>
+
+      {branches.length > 1 && <TextField fullWidth select size="small" label={t('Branch')} value={branchId} onChange={(event) => setBranchId(event.target.value)} sx={{ width: { xs: '100%', sm: 320 }, mb: 2 }}>
+        {branches.map((branch: any) => <MenuItem key={branch.id} value={branch.id}>{branch.name}</MenuItem>)}
+      </TextField>}
 
       <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff', mb: 3 }}>
         <Tabs
           value={currentTab}
           onChange={(_e, v) => setCurrentTab(v)}
-          sx={{ px: 2, borderBottom: '1px solid #e2e8f0' }}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+          sx={{ px: { xs: 0.5, sm: 2 }, borderBottom: '1px solid #e2e8f0' }}
         >
           <Tab label={t("Current Stock on Hand")} sx={{ fontWeight: 600 }} />
           <Tab label={t("Stock Movements Audit Ledger")} sx={{ fontWeight: 600 }} />
@@ -192,8 +227,8 @@ export const InventoryPage: React.FC = () => {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                      {t("No stock balances recorded.")}</TableCell>
+              <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                {t("No stock balances recorded.")}</TableCell>
                   </TableRow>
                 )}
               </TableBody>

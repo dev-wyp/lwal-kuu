@@ -9,6 +9,7 @@ import {
   LinearProgress,
   Stack,
   Table,
+  TableContainer,
   TableBody,
   TableCell,
   TableHead,
@@ -268,7 +269,8 @@ export const OverviewPage: React.FC = () => {
               {published.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">No published posts yet.</Typography>
               ) : (
-                <Table size="small">
+                <TableContainer>
+                <Table size="small" sx={{ minWidth: 440 }}>
                   <TableHead>
                     <TableRow>
                       <TableCell>Title</TableCell>
@@ -286,6 +288,7 @@ export const OverviewPage: React.FC = () => {
                     ))}
                   </TableBody>
                 </Table>
+                </TableContainer>
               )}
             </CardContent>
           </Card>

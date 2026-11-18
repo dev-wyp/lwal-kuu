@@ -39,6 +39,9 @@ import { AnalyticsPage } from '@/modules/marketing/pages/AnalyticsPage';
 import { ReportsPage as MarketingReportsPage } from '@/modules/marketing/pages/ReportsPage';
 import { AiSettingsPage } from '@/modules/marketing/pages/AiSettingsPage';
 import { MarketingSettingsPage } from '@/modules/marketing/pages/MarketingSettingsPage';
+import { SupportPage } from '@/modules/support/SupportPage';
+import { SupportTicketsPage } from '@/modules/platform/SupportTicketsPage';
+import { BranchesPage } from '@/modules/inventory/BranchesPage';
 
 export const router = createBrowserRouter([
   // Public Landing & Pricing
@@ -91,9 +94,11 @@ export const router = createBrowserRouter([
       { path: 'sales', element: <FeatureGate feature="sales_management"><SalesPage /></FeatureGate> },
       { path: 'purchases', element: <FeatureGate feature="purchase_management"><PurchasesPage /></FeatureGate> },
       { path: 'inventory', element: <FeatureGate feature="inventory_management"><InventoryPage /></FeatureGate> },
+      { path: 'branches', element: <FeatureGate feature="multi_branch"><BranchesPage /></FeatureGate> },
       { path: 'payments', element: <FeatureGate feature="payment_receipt_mgmt"><PaymentsPage /></FeatureGate> },
       { path: 'expenses', element: <FeatureGate feature="expense_management"><ExpensesPage /></FeatureGate> },
       { path: 'reports', element: <FeatureGate feature="daily_sales_report"><ReportsPage /></FeatureGate> },
+      { path: 'support', element: <FeatureGate feature="priority_support"><SupportPage /></FeatureGate> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'subscription', element: <SubscriptionPage /> },
     ],
@@ -112,6 +117,7 @@ export const router = createBrowserRouter([
       { path: 'automations', element: <PlatformAdminPage /> },
       { path: 'users', element: <AdminUsersPage /> },
       { path: 'plans', element: <PlanManagementPage /> },
+      { path: 'support', element: <SupportTicketsPage /> },
       {
         path: 'marketing',
         element: <MarketingLayout />,

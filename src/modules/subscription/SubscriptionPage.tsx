@@ -216,15 +216,20 @@ export const SubscriptionPage: React.FC = () => {
       <Grid container spacing={3} alignItems="stretch" sx={{ mb: 4 }}>
         {plansMaster.map((plan, index) => {
           const isCurrentPlan = plan.id === subData?.plan_id;
-          const inheritedFeatureNames = new Set(plansMaster.slice(0, index).flatMap((lowerPlan) => lowerPlan.plan_features
+          const booleanFeatures = plan.plan_features.filter((feature) => feature.features?.feature_type === 'boolean'
+            && feature.features.name);
+          const enabledFeatureNames = new Set(booleanFeatures.filter((feature) => feature.is_enabled)
+            .map((feature) => feature.features?.name).filter((name): name is string => Boolean(name)));
+          const earlierFeatureNames = new Set(plansMaster.slice(0, index).flatMap((earlierPlan) =>
+            earlierPlan.plan_features.filter((feature) => feature.is_enabled && feature.features?.feature_type === 'boolean')
+              .map((feature) => feature.features?.name).filter((name): name is string => Boolean(name))));
+          const additionalFeatures = booleanFeatures.filter((feature) => feature.is_enabled
+            && feature.features?.name && !earlierFeatureNames.has(feature.features.name));
+          const previousPlan = plansMaster[index - 1];
+          const previousFeatureNames = previousPlan?.plan_features
             .filter((feature) => feature.is_enabled && feature.features?.feature_type === 'boolean')
-            .map((feature) => feature.features?.name)
-            .filter((name): name is string => Boolean(name))));
-          const includedFeatures = plan.plan_features.filter((feature) => feature.is_enabled
-            && feature.features?.feature_type === 'boolean'
-            && feature.features.name
-            && !inheritedFeatureNames.has(feature.features.name));
-          const includedPlan = plansMaster[index - 1];
+            .map((feature) => feature.features?.name).filter((name): name is string => Boolean(name)) ?? [];
+          const includesPreviousPlan = previousFeatureNames.every((name) => enabledFeatureNames.has(name));
           const price = billingCycle === 'yearly' ? plan.yearly_price_mmk : plan.monthly_price_mmk;
           const limits = plan.plan_feature_limits.filter((item) => item.features?.name);
           return <Grid item xs={12} md={4} key={plan.id}>
@@ -247,13 +252,13 @@ export const SubscriptionPage: React.FC = () => {
                 <List dense disablePadding>{limits.map((item) => <ListItem key={item.features?.name} disableGutters>
                   <ListItemText primary={`${t(item.features?.name ?? '')}: ${item.limit_value === -1 ? t('Unlimited') : item.limit_value.toLocaleString()}`} />
                 </ListItem>)}</List>
-                {includedPlan && <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-                  {t('Includes all {{plan}} features.', { plan: t(includedPlan.name) })}
+                {includesPreviousPlan && previousPlan && <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+                  {t('Includes all {{plan}} features.', { plan: t(previousPlan.name) })}
                 </Typography>}
-                <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1.5 }}>{t(includedPlan ? 'Additional features' : 'Included features')}</Typography>
-                <List dense disablePadding>{includedFeatures.length === 0
-                  ? <ListItem disableGutters><ListItemText primary={t(includedPlan ? 'No additional features' : 'No modules configured')} /></ListItem>
-                  : includedFeatures.map((feature) => <ListItem key={feature.features?.name} disableGutters>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1.5 }}>{t(previousPlan ? 'Additional features' : 'Included features')}</Typography>
+                <List dense disablePadding>{additionalFeatures.length === 0
+                  ? <ListItem disableGutters><ListItemText primary={t(previousPlan ? 'No additional features' : 'No modules configured')} /></ListItem>
+                  : additionalFeatures.map((feature) => <ListItem key={feature.features?.name} disableGutters>
                     <ListItemIcon sx={{ minWidth: 28 }}><CheckCircleIcon color="success" fontSize="small" /></ListItemIcon>
                     <ListItemText primary={t(feature.features?.name ?? '')} />
                   </ListItem>)}</List>

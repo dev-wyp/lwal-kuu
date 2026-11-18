@@ -15,7 +15,7 @@ export const AuthLayout: React.FC = () => {
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
-        bgcolor: '#f1f5f9',
+        bgcolor: 'background.default',
         p: 2,
       }}
     >
@@ -31,8 +31,8 @@ export const AuthLayout: React.FC = () => {
           textDecoration: 'none',
         }}
       >
-        <StorefrontIcon sx={{ fontSize: 36, color: '#0284c7' }} />
-        <Typography variant="h4" sx={{ fontWeight: 800, color: '#0f172a', letterSpacing: '-0.03em' }}>
+        <StorefrontIcon sx={{ fontSize: 36, color: 'primary.main' }} />
+        <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', letterSpacing: '-0.03em' }}>
           Lwal Kuu
         </Typography>
       </Box>
@@ -41,11 +41,11 @@ export const AuthLayout: React.FC = () => {
         elevation={0}
         sx={{
           width: '100%',
-          maxWidth: 440,
+          maxWidth: 460,
           p: { xs: 3, sm: 4 },
-          borderRadius: 3,
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+          borderRadius: 4,
+          border: '1px solid #e3eaec',
+          boxShadow: '0 12px 36px -12px rgba(23, 43, 53, 0.12)',
           bgcolor: '#ffffff',
         }}
       >

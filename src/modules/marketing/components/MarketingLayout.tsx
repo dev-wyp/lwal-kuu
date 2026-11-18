@@ -145,6 +145,7 @@ export const MarketingLayout: React.FC = () => {
           onChange={(_e, value: string) => navigate(value)}
           variant="scrollable"
           scrollButtons="auto"
+          allowScrollButtonsMobile
         >
           {TABS.map((tab) => (
             <Tab
