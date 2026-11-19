@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Box,
   Typography,
@@ -43,6 +43,7 @@ export const PaymentsPage: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [allocations, setAllocations] = useState<{ [saleId: string]: number }>({});
   const [submitting, setSubmitting] = useState(false);
+  const pendingPayment = useRef<{ fingerprint: string; idempotencyKey: string } | null>(null);
 
   // 1. Fetch Customers
   const { data: customers = [] } = useQuery({
@@ -130,10 +131,24 @@ export const PaymentsPage: React.FC = () => {
     const allocList = Object.entries(allocations)
       .filter(([_, amt]) => amt > 0)
       .map(([saleId, amt]) => ({ sale_id: saleId, amount: amt }));
+    const fingerprint = JSON.stringify({
+      organizationId: currentOrg.id,
+      customerId,
+      amount: paymentAmount,
+      paymentMethod,
+      allocations: [...allocList].sort((left, right) => left.sale_id.localeCompare(right.sale_id)),
+      referenceNumber: referenceNumber || null,
+      notes: notes || null,
+    });
+    if (pendingPayment.current && pendingPayment.current.fingerprint !== fingerprint) {
+      showError('A previous payment result is still pending. Retry the same details or review payment history before entering a different payment.');
+      return;
+    }
 
     try {
       setSubmitting(true);
-      const idempotencyKey = crypto.randomUUID();
+      const idempotencyKey = pendingPayment.current?.idempotencyKey ?? crypto.randomUUID();
+      pendingPayment.current = { fingerprint, idempotencyKey };
 
       const { data, error } = await supabase.rpc('record_customer_payment_and_allocate', {
         p_org_id: currentOrg.id,
@@ -146,9 +161,16 @@ export const PaymentsPage: React.FC = () => {
         p_idempotency_key: idempotencyKey,
       });
 
-      if (error) throw error;
+      if (error) {
+        if ('code' in error && error.code) pendingPayment.current = null;
+        throw error;
+      }
 
-      showSuccess(`Payment ${data.payment_number} recorded and allocated!`);
+      const unallocated = Number(data.unallocated_amount ?? paymentAmount - Number(data.allocated_amount ?? 0));
+      showSuccess(unallocated > 0
+        ? `Payment ${data.payment_number} recorded. ${formatCurrency(unallocated)} remains as customer credit.`
+        : `Payment ${data.payment_number} recorded and allocated.`);
+      pendingPayment.current = null;
       queryClient.invalidateQueries({ queryKey: ['payments_list'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard_metrics'] });

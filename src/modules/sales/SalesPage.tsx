@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Box,
   Typography,
@@ -74,6 +74,12 @@ export const SalesPage: React.FC = () => {
   const [saleToVoid, setSaleToVoid] = useState<any>(null);
   const [voidReason, setVoidReason] = useState('');
   const [voiding, setVoiding] = useState(false);
+  const pendingConfirmation = useRef<{
+    saleId: string;
+    invoiceNumber: string;
+    idempotencyKey: string;
+    requestFingerprint: string;
+  } | null>(null);
 
   // 1. Fetch Customers
   const { data: customers = [] } = useQuery({
@@ -216,71 +222,96 @@ export const SalesPage: React.FC = () => {
 
     try {
       setConfirming(true);
-      const idempotencyKey = crypto.randomUUID();
-
-      // 1. Generate Next Invoice Number
-      const invNumRes = await supabase.rpc('next_document_number', {
-        p_org_id: currentOrg.id,
-        p_doc_type: 'sale',
+      const requestFingerprint = JSON.stringify({
+        organizationId: currentOrg.id,
+        branchId: selectedBranchId,
+        customerId: selectedCustomerId || null,
+        cart: cart.map(({ productId, quantity, unitPrice }) => ({ productId, quantity, unitPrice })),
+        discountAmount,
+        actualPaid,
+        paymentMethod,
       });
-      const invoiceNum = invNumRes.data;
+      let pending = pendingConfirmation.current;
+      if (pending && pending.requestFingerprint !== requestFingerprint) {
+        showError('A previous sale confirmation is still pending. Retry it with the same cart or reload sales history before starting a different sale.');
+        return;
+      }
 
-      // 2. Create Draft Sale
-      const { data: saleData, error: saleErr } = await supabase
-        .from('sales')
-        .insert({
+      if (!pending) {
+        const invNumRes = await supabase.rpc('next_document_number', {
+          p_org_id: currentOrg.id,
+          p_doc_type: 'sale',
+        });
+        if (invNumRes.error) throw invNumRes.error;
+        const invoiceNum = invNumRes.data;
+        if (!invoiceNum) throw new Error('Could not create an invoice number');
+
+        const { data: saleData, error: saleErr } = await supabase
+          .from('sales')
+          .insert({
+            organization_id: currentOrg.id,
+            branch_id: selectedBranchId,
+            customer_id: selectedCustomerId || null,
+            invoice_number: invoiceNum,
+            status: 'draft',
+            subtotal,
+            discount_amount: discountAmount,
+            total_amount: totalDue,
+            paid_amount: 0,
+          } as any)
+          .select()
+          .single();
+        if (saleErr) throw saleErr;
+
+        const itemRows = cart.map((it) => ({
           organization_id: currentOrg.id,
-          branch_id: selectedBranchId,
-          customer_id: selectedCustomerId || null,
-          invoice_number: invoiceNum,
-          status: 'draft',
-          subtotal: subtotal,
-          discount_amount: discountAmount,
-          total_amount: totalDue,
-          paid_amount: 0,
-        } as any)
-        .select()
-        .single();
+          sale_id: saleData.id,
+          product_id: it.productId,
+          quantity: it.quantity,
+          unit_price: it.unitPrice,
+          discount_amount: 0,
+          total_amount: it.quantity * it.unitPrice,
+        }));
+        const { error: itemsErr } = await supabase.from('sale_items').insert(itemRows as any);
+        if (itemsErr) throw itemsErr;
 
-      if (saleErr) throw saleErr;
+        pending = {
+          saleId: saleData.id,
+          invoiceNumber: invoiceNum,
+          idempotencyKey: crypto.randomUUID(),
+          requestFingerprint,
+        };
+        pendingConfirmation.current = pending;
+      }
 
-      // 3. Create Sale Items
-      const itemRows = cart.map((it) => ({
-        organization_id: currentOrg.id,
-        sale_id: saleData.id,
-        product_id: it.productId,
-        quantity: it.quantity,
-        unit_price: it.unitPrice,
-        discount_amount: 0,
-        total_amount: it.quantity * it.unitPrice,
-      }));
-
-      const { error: itemsErr } = await supabase.from('sale_items').insert(itemRows as any);
-      if (itemsErr) throw itemsErr;
-
-      // 4. Atomic Confirm Sale RPC
-      const { error: confirmErr } = await supabase.rpc('confirm_sale', {
+      const { data: confirmation, error: confirmErr } = await supabase.rpc('confirm_sale', {
         p_org_id: currentOrg.id,
-        p_sale_id: saleData.id,
+        p_sale_id: pending.saleId,
         p_payment_method: paymentMethod,
         p_amount_paid: actualPaid,
-        p_idempotency_key: idempotencyKey,
+        p_idempotency_key: pending.idempotencyKey,
       });
+      if (confirmErr) {
+        // A structured PostgREST/PostgreSQL error confirms the transaction rolled
+        // back, so the user may correct inputs. Network errors keep the key for retry.
+        if ('code' in confirmErr && confirmErr.code) pendingConfirmation.current = null;
+        throw confirmErr;
+      }
 
-      if (confirmErr) throw confirmErr;
-
-      showSuccess(`Invoice ${invoiceNum} confirmed!`);
+      showSuccess(`Invoice ${pending.invoiceNumber} confirmed!`);
 
       // Open printable receipt
       setReceiptSale({
-        ...saleData,
-        invoice_number: invoiceNum,
-        total_amount: totalDue,
-        paid_amount: actualPaid,
+        ...confirmation.sale,
+        ...confirmation,
+        invoice_number: pending.invoiceNumber,
         customer_name: customers.find((c: any) => c.customer_id === selectedCustomerId)?.customer_name,
-        payment_status: actualPaid >= totalDue ? 'paid' : actualPaid > 0 ? 'partial' : 'unpaid',
+        total_amount: confirmation.sale?.total_amount ?? totalDue,
+        paid_amount: confirmation.sale?.paid_amount ?? actualPaid,
+        payment_status: confirmation.sale?.payment_status,
         items: cart,
       });
+      pendingConfirmation.current = null;
 
       // Clear cart
       setCart([]);

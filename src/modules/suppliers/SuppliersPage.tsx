@@ -34,6 +34,7 @@ import * as z from 'zod';
 import { useI18n } from '@/i18n/I18nContext';
 import { useEntitlements } from '@/modules/subscription/useEntitlements';
 import { SupplierStatementModal } from './SupplierStatementModal';
+import { SupplierPaymentDialog } from './SupplierPaymentDialog';
 
 const supplierSchema = z.object({
   name: z.string().min(1, 'Supplier name is required'),
@@ -57,6 +58,7 @@ export const SuppliersPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [statementSupplier, setStatementSupplier] = useState<any>(null);
+  const [paymentSupplier, setPaymentSupplier] = useState<{ id: string; name: string } | null>(null);
   const canViewPayables = entitlements.some((item) => item.feature_key === 'supplier_payables' && item.is_allowed);
   const canPrintStatement = entitlements.some((item) => item.feature_key === 'supplier_statement_pdf' && item.is_allowed);
 
@@ -196,6 +198,7 @@ export const SuppliersPage: React.FC = () => {
                   <TableCell align="right">{t("Received Purchases")}</TableCell>
                   <TableCell align="right">{t("Payments Made")}</TableCell>
                   <TableCell align="right">{t("Current Payable")}</TableCell>
+                  <TableCell align="right">{t('Actions')}</TableCell>
                 </>}
                 {canPrintStatement && <TableCell align="right">{t('Statement')}</TableCell>}
               </TableRow>
@@ -203,7 +206,7 @@ export const SuppliersPage: React.FC = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                    <TableCell colSpan={2 + (canViewPayables ? 4 : 0) + (canPrintStatement ? 1 : 0)} align="center" sx={{ py: 6 }}>
+                    <TableCell colSpan={2 + (canViewPayables ? 5 : 0) + (canPrintStatement ? 1 : 0)} align="center" sx={{ py: 6 }}>
                     <CircularProgress size={32} />
                   </TableCell>
                 </TableRow>
@@ -219,6 +222,11 @@ export const SuppliersPage: React.FC = () => {
                       <TableCell align="right" sx={{ fontWeight: 700, color: s.current_payable > 0 ? '#ef4444' : 'inherit' }}>
                         {formatCurrency(s.current_payable)}
                       </TableCell>
+                      <TableCell align="right">
+                        <Button size="small" onClick={() => setPaymentSupplier({ id: s.supplier_id, name: s.supplier_name })}>
+                          {t('Record payment')}
+                        </Button>
+                      </TableCell>
                     </>}
                     {canPrintStatement && <TableCell align="right">
                       <Tooltip title={t('Print Statement')}><IconButton size="small" onClick={() => setStatementSupplier(s)} aria-label={t('Print Statement')}><PrintIcon fontSize="small" /></IconButton></Tooltip>
@@ -227,7 +235,7 @@ export const SuppliersPage: React.FC = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={2 + (canViewPayables ? 4 : 0) + (canPrintStatement ? 1 : 0)} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                  <TableCell colSpan={2 + (canViewPayables ? 5 : 0) + (canPrintStatement ? 1 : 0)} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                     No suppliers found. Click &quot;Add Supplier&quot; to register vendors.
                   </TableCell>
                 </TableRow>
@@ -238,6 +246,7 @@ export const SuppliersPage: React.FC = () => {
       </Paper>
 
       {statementSupplier && <SupplierStatementModal supplier={statementSupplier} onClose={() => setStatementSupplier(null)} />}
+      {paymentSupplier && <SupplierPaymentDialog supplierId={paymentSupplier.id} supplierName={paymentSupplier.name} onClose={() => setPaymentSupplier(null)} />}
 
       {/* Add Supplier Modal */}
       <Dialog open={modalOpen} onClose={() => setModalOpen(false)} maxWidth="sm" fullWidth>
