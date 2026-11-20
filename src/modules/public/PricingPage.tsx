@@ -6,13 +6,14 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { LanguageSwitcher } from '@/i18n/LanguageSwitcher';
 import { useI18n } from '@/i18n/I18nContext';
+import { getPlanFeatureSection, getPlanLimitValue, getYearlySavingsPercent } from '@/modules/subscription/planPresentation.js';
 
 interface PriceFeature { feature_id: string; is_enabled: boolean }
 interface PriceLimit { feature_id: string; limit_value: number }
-interface CatalogFeature { id: string; feature_key: string; name: string; feature_type: string }
+interface CatalogFeature { id: string; feature_key: string; name: string; feature_type: string; category: string }
 interface PricePlan {
   id: string; name: string; slug: string; description: string | null; monthly_price_mmk: number; yearly_price_mmk: number;
-  currency: string; display_order: number; max_users: number; max_products: number; max_customers: number;
+  currency: string; display_order: number; trial_days: number; max_users: number; max_products: number; max_customers: number;
   max_suppliers: number; max_branches: number; plan_features: PriceFeature[]; plan_feature_limits: PriceLimit[];
 }
 
@@ -26,7 +27,7 @@ export const PricingPage: React.FC = () => {
       const [plansResult, featuresResult] = await Promise.all([
         supabase.from('plans').select('*, plan_features(feature_id,is_enabled), plan_feature_limits(feature_id,limit_value)')
           .eq('is_active', true).eq('is_public', true).order('display_order'),
-        supabase.from('features').select('id,feature_key,name,feature_type').eq('is_active', true).order('category').order('name'),
+        supabase.from('features').select('id,feature_key,name,feature_type,category').eq('is_active', true).order('category').order('name'),
       ]);
       if (plansResult.error) throw plansResult.error;
       if (featuresResult.error) throw featuresResult.error;
@@ -71,19 +72,20 @@ export const PricingPage: React.FC = () => {
           const assignments = new Map(plan.plan_features.map((item) => [item.feature_id, item.is_enabled]));
           const configuredLimits = new Map(plan.plan_feature_limits.map((item) => [item.feature_id, item.limit_value]));
           const booleanFeatures = catalogFeatures.filter((feature) => feature.feature_type === 'boolean');
-          const booleanFeatureIds = new Set(booleanFeatures.map((feature) => feature.id));
-          const activeFeatureIds = new Set(booleanFeatures.filter((feature) => assignments.get(feature.id) === true).map((feature) => feature.id));
-          const earlierFeatureIds = new Set(plans.slice(0, index).flatMap((earlierPlan) =>
-            earlierPlan.plan_features.filter((item) => item.is_enabled && booleanFeatureIds.has(item.feature_id)).map((item) => item.feature_id)));
-          const additionalFeatures = booleanFeatures.filter((feature) => activeFeatureIds.has(feature.id) && !earlierFeatureIds.has(feature.id));
+          const enabledFeatures = booleanFeatures
+            .filter((feature) => assignments.get(feature.id) === true)
+            .map((feature) => ({ id: feature.id, name: feature.name, category: feature.category }));
           const previousPlan = plans[index - 1];
-          const includesPreviousPlan = previousPlan?.plan_features
-            .filter((item) => item.is_enabled && booleanFeatureIds.has(item.feature_id))
-            .every((item) => activeFeatureIds.has(item.feature_id)) ?? false;
+          const previousEnabledFeatures = previousPlan
+            ? booleanFeatures.filter((feature) => previousPlan.plan_features.some((item) => item.feature_id === feature.id && item.is_enabled))
+              .map((feature) => ({ id: feature.id, name: feature.name, category: feature.category }))
+            : null;
+          const featureSection = getPlanFeatureSection(enabledFeatures, previousEnabledFeatures);
           const limits = catalogFeatures.filter((feature) => feature.feature_type === 'limit').map((feature) => ({
             ...feature,
-            limit_value: configuredLimits.get(feature.id) ?? legacyLimit(plan, feature.feature_key),
+            limit_value: getPlanLimitValue(configuredLimits.get(feature.id), legacyLimit(plan, feature.feature_key)),
           }));
+          const yearlySavings = getYearlySavingsPercent(Number(plan.monthly_price_mmk), Number(plan.yearly_price_mmk));
           return <Grid item xs={12} md={4} key={plan.id}>
             <Card sx={{ height: '100%', borderRadius: 3, border: plan.slug === 'business' ? '2px solid #0284c7' : '1px solid #e2e8f0' }}>
               <CardContent sx={{ p: 3 }}>
@@ -93,18 +95,25 @@ export const PricingPage: React.FC = () => {
                   <Typography variant="h3" fontWeight={800}>{price.toLocaleString()}</Typography>
                   <Typography color="text.secondary" sx={{ ml: 1 }}>{plan.currency} / {cycle === 'yearly' ? t('year') : t('month')}</Typography>
                 </Box>
+                {cycle === 'yearly' && yearlySavings !== null && <Typography variant="body2" color="success.main" sx={{ mb: 1.5, fontWeight: 700 }}>
+                  {t('Save {{percent}}% compared with monthly billing', { percent: yearlySavings })}
+                </Typography>}
                 <Button fullWidth variant="contained" sx={{ mb: 2 }} onClick={() => navigate(`/register?plan=${plan.id}&cycle=${cycle}`)}>{t('Choose this plan')}</Button>
                 <Typography variant="subtitle2" fontWeight={700}>{t('Usage limits')}</Typography>
                 <List dense disablePadding>{limits.map((item) => <ListItem key={item.id} disableGutters>
                   <ListItemText primary={`${t(item.name)}: ${item.limit_value === null ? t('Not configured') : number(item.limit_value)}`} />
                 </ListItem>)}</List>
-                {includesPreviousPlan && previousPlan && <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1 }}>{t('Plan terms')}</Typography>
+                <List dense disablePadding><ListItem disableGutters>
+                  <ListItemText primary={`${t('Free trial')}: ${plan.trial_days > 0 ? t('{{days}} days', { days: plan.trial_days }) : t('No free trial')}`} />
+                </ListItem></List>
+                {featureSection.includesPreviousPlan && previousPlan && <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                   {t('Includes all {{plan}} features.', { plan: t(previousPlan.name) })}
                 </Typography>}
-                <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1 }}>{t(previousPlan ? 'Additional features' : 'Included features')}</Typography>
-                <List dense disablePadding>{additionalFeatures.length === 0
-                  ? <ListItem disableGutters><ListItemText primary={t(previousPlan ? 'No additional features' : 'No modules configured')} /></ListItem>
-                  : additionalFeatures.map((item) => <ListItem key={item.id} disableGutters>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1 }}>{t(featureSection.includesPreviousPlan ? 'Additional features' : 'Included features')}</Typography>
+                <List dense disablePadding>{featureSection.features.length === 0
+                  ? <ListItem disableGutters><ListItemText primary={t(enabledFeatures.length === 0 ? 'No modules configured' : 'No additional features')} /></ListItem>
+                  : featureSection.features.map((item) => <ListItem key={item.id} disableGutters>
                     <ListItemIcon sx={{ minWidth: 28 }}><CheckCircleIcon color="success" fontSize="small" /></ListItemIcon>
                     <ListItemText primary={t(item.name)} />
                   </ListItem>)}</List>

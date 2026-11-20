@@ -1,7 +1,7 @@
 -- GENERATED FILE. Do not edit this snapshot directly.
 -- Source of truth: supabase/migrations/*.sql in numeric order.
 -- Regenerate with: node scripts/generate-schema-unified.mjs
--- Included migrations: 44
+-- Included migrations: 50
 
 -- >>> BEGIN 0001_core_and_tenancy.sql
 -- ==============================================================================
@@ -9885,22 +9885,40 @@ begin;
 -- shape differs from this migration's contract. Inspect its columns and constraints
 -- first; never create a parallel ledger or guess how legacy references map.
 do $$
-declare missing_columns text[];
+declare missing_columns text[]; incompatible_columns text[]; extra_required_columns text[];
 begin
   if to_regclass('public.supplier_payment_allocations') is not null then
     select array_agg(required.column_name order by required.column_name)
       into missing_columns
       from (values
-        ('id'),('organization_id'),('supplier_payment_id'),('purchase_id'),('amount')
-      ) as required(column_name)
+        ('id','uuid'),('organization_id','uuid'),('supplier_payment_id','uuid'),
+        ('purchase_id','uuid'),('amount','numeric')
+      ) as required(column_name,expected_udt_name)
       where not exists (
         select 1 from information_schema.columns c
         where c.table_schema='public'
           and c.table_name='supplier_payment_allocations'
           and c.column_name=required.column_name
       );
-    if missing_columns is not null then
-      raise exception 'Existing public.supplier_payment_allocations has an incompatible schema; missing columns: %. Run the read-only schema inspection query and adapt migration 0044 before retrying.', array_to_string(missing_columns, ', ');
+    select array_agg(required.column_name||' (expected '||required.expected_udt_name||', found '||c.udt_name||')' order by required.column_name)
+      into incompatible_columns
+      from (values
+        ('id','uuid'),('organization_id','uuid'),('supplier_payment_id','uuid'),
+        ('purchase_id','uuid'),('amount','numeric')
+      ) as required(column_name,expected_udt_name)
+      join information_schema.columns c
+        on c.table_schema='public' and c.table_name='supplier_payment_allocations'
+       and c.column_name=required.column_name
+      where c.udt_name<>required.expected_udt_name;
+    select array_agg(c.column_name order by c.column_name)
+      into extra_required_columns
+      from information_schema.columns c
+      where c.table_schema='public' and c.table_name='supplier_payment_allocations'
+        and c.is_nullable='NO' and c.column_default is null
+        and c.is_identity='NO' and c.is_generated='NEVER'
+        and c.column_name not in ('organization_id','supplier_payment_id','purchase_id','amount');
+    if missing_columns is not null or incompatible_columns is not null or extra_required_columns is not null then
+      raise exception 'Existing public.supplier_payment_allocations is incompatible; missing columns: %; incompatible types: %; additional required columns with no default: %. Run the read-only schema inspection and adapt migration 0044 before retrying.', coalesce(array_to_string(missing_columns, ', '),'none'), coalesce(array_to_string(incompatible_columns, ', '),'none'), coalesce(array_to_string(extra_required_columns, ', '),'none');
     end if;
   end if;
 end;
@@ -10105,3 +10123,1387 @@ grant execute on function public.record_supplier_payment_and_allocate(uuid,uuid,
 notify pgrst,'reload schema';
 commit;
 -- <<< END 0044_supplier_payment_workflow.sql
+
+-- >>> BEGIN 0045_plan_gated_customer_and_supplier_ledgers.sql
+-- Enforce Business/Pro ledger entitlements at the database boundary.
+-- This migration changes read views, restrictive read policies, and the
+-- customer statement RPC. It does not update or remove business rows.
+
+create or replace view public.customer_balances_summary as
+select
+  c.id as customer_id,
+  c.organization_id,
+  c.name as customer_name,
+  c.phone,
+  c.credit_limit,
+  c.opening_balance,
+  coalesce(sales_agg.total_sales, 0.00) as total_confirmed_sales,
+  coalesce(pay_agg.total_payments, 0.00) as total_payments_received,
+  (c.opening_balance + coalesce(sales_agg.total_sales, 0.00) - coalesce(pay_agg.total_payments, 0.00)) as current_balance
+from public.customers c
+left join (
+  select customer_id, organization_id, sum(total_amount) as total_sales
+  from public.sales
+  where status = 'confirmed'
+  group by customer_id, organization_id
+) sales_agg on sales_agg.customer_id = c.id and sales_agg.organization_id = c.organization_id
+left join (
+  select customer_id, organization_id, sum(amount) as total_payments
+  from public.payments
+  where status = 'posted'
+  group by customer_id, organization_id
+) pay_agg on pay_agg.customer_id = c.id and pay_agg.organization_id = c.organization_id
+where c.is_active = true
+  and public.has_org_membership(c.organization_id)
+  and (
+    public.organization_has_plan_feature(c.organization_id, 'customer_ledger')
+    or public.organization_has_plan_feature(c.organization_id, 'customer_debt_tracking')
+  );
+
+create or replace view public.supplier_balances_summary as
+select
+  s.id as supplier_id,
+  s.organization_id,
+  s.name as supplier_name,
+  s.phone,
+  s.opening_balance,
+  coalesce(purch_agg.total_purchases, 0.00) as total_received_purchases,
+  coalesce(pay_agg.total_paid, 0.00) as total_payments_made,
+  (s.opening_balance + coalesce(purch_agg.total_purchases, 0.00) - coalesce(pay_agg.total_paid, 0.00)) as current_payable
+from public.suppliers s
+left join (
+  select supplier_id, organization_id, sum(total_amount) as total_purchases
+  from public.purchases
+  where status = 'received'
+  group by supplier_id, organization_id
+) purch_agg on purch_agg.supplier_id = s.id and purch_agg.organization_id = s.organization_id
+left join (
+  select supplier_id, organization_id, sum(amount) as total_paid
+  from public.supplier_payments
+  group by supplier_id, organization_id
+) pay_agg on pay_agg.supplier_id = s.id and pay_agg.organization_id = s.organization_id
+where s.is_active = true
+  and public.has_org_membership(s.organization_id)
+  and public.organization_has_plan_feature(s.organization_id, 'supplier_payables');
+
+-- Views execute using caller rights where supported, so base-table RLS and
+-- advanced-role read policies continue to apply as well as these plan checks.
+alter view public.customer_balances_summary set (security_invoker = true);
+alter view public.supplier_balances_summary set (security_invoker = true);
+
+-- Report-page FeatureGate checks are not an authorization boundary. Apply
+-- each report entitlement inside its view so direct PostgREST reads obey the
+-- same plan matrix.
+create or replace view public.daily_sales_performance as
+select organization_id, sale_date, count(id) as total_invoices,
+       sum(total_amount) as total_revenue, sum(total_cost) as total_cogs,
+       sum(total_amount - total_cost) as gross_profit,
+       case when sum(total_amount) > 0
+         then round(((sum(total_amount - total_cost) / sum(total_amount)) * 100), 2)
+         else 0.00 end as gross_margin_percentage
+from public.sales
+where status = 'confirmed'
+  and public.has_org_membership(organization_id)
+  and public.organization_has_plan_feature(organization_id, 'daily_sales_report')
+group by organization_id, sale_date;
+
+create or replace view public.product_sales_performance as
+select s.organization_id, p.id as product_id, p.sku, p.name as product_name,
+       count(distinct s.id)::integer as invoice_count, sum(si.quantity) as units_sold,
+       sum(si.total_amount) as revenue, sum(si.quantity * si.unit_cost) as cost_of_goods,
+       sum(si.total_amount - (si.quantity * si.unit_cost)) as gross_profit
+from public.sales s
+join public.sale_items si on si.sale_id = s.id and si.organization_id = s.organization_id
+join public.products p on p.id = si.product_id and p.organization_id = s.organization_id
+where s.status = 'confirmed'
+  and public.has_org_membership(s.organization_id)
+  and public.organization_has_plan_feature(s.organization_id, 'basic_product_report')
+group by s.organization_id, p.id, p.sku, p.name;
+
+create or replace view public.monthly_sales_performance as
+select s.organization_id, date_trunc('month', s.sale_date)::date as period_start,
+       count(*)::integer as invoice_count, sum(s.total_amount) as revenue,
+       sum(s.total_cost) as cost_of_goods, sum(s.total_amount - s.total_cost) as gross_profit
+from public.sales s
+where s.status = 'confirmed'
+  and public.has_org_membership(s.organization_id)
+  and public.organization_has_plan_feature(s.organization_id, 'monthly_yearly_reports')
+group by s.organization_id, date_trunc('month', s.sale_date)::date;
+
+create or replace view public.yearly_sales_performance as
+select s.organization_id, date_trunc('year', s.sale_date)::date as period_start,
+       count(*)::integer as invoice_count, sum(s.total_amount) as revenue,
+       sum(s.total_cost) as cost_of_goods, sum(s.total_amount - s.total_cost) as gross_profit
+from public.sales s
+where s.status = 'confirmed'
+  and public.has_org_membership(s.organization_id)
+  and public.organization_has_plan_feature(s.organization_id, 'monthly_yearly_reports')
+group by s.organization_id, date_trunc('year', s.sale_date)::date;
+
+create or replace view public.purchase_analytics as
+select p.organization_id, date_trunc('month', p.purchase_date)::date as period_start,
+       p.supplier_id, s.name as supplier_name, count(p.id)::integer as purchase_count,
+       sum(p.total_amount) as purchase_amount, sum(p.paid_amount) as paid_amount,
+       sum(p.total_amount - p.paid_amount) as outstanding_amount
+from public.purchases p
+join public.suppliers s on s.id = p.supplier_id and s.organization_id = p.organization_id
+where p.status = 'received'
+  and public.has_org_membership(p.organization_id)
+  and public.organization_has_plan_feature(p.organization_id, 'purchase_analytics')
+group by p.organization_id, date_trunc('month', p.purchase_date)::date, p.supplier_id, s.name;
+
+create or replace view public.profit_loss_performance as
+with sales_monthly as (
+  select organization_id, date_trunc('month', sale_date)::date as period_start,
+         sum(total_amount) as revenue, sum(total_cost) as cost_of_goods
+  from public.sales
+  where status = 'confirmed' and public.has_org_membership(organization_id)
+    and public.organization_has_plan_feature(organization_id, 'profit_loss_report')
+  group by organization_id, date_trunc('month', sale_date)::date
+), expenses_monthly as (
+  select organization_id, date_trunc('month', expense_date)::date as period_start,
+         sum(amount) as expenses
+  from public.expenses
+  where public.has_org_membership(organization_id)
+    and public.organization_has_plan_feature(organization_id, 'profit_loss_report')
+  group by organization_id, date_trunc('month', expense_date)::date
+), periods as (
+  select organization_id, period_start from sales_monthly
+  union select organization_id, period_start from expenses_monthly
+)
+select periods.organization_id, periods.period_start,
+       coalesce(sales_monthly.revenue, 0)::numeric as revenue,
+       coalesce(sales_monthly.cost_of_goods, 0)::numeric as cost_of_goods,
+       (coalesce(sales_monthly.revenue, 0) - coalesce(sales_monthly.cost_of_goods, 0))::numeric as gross_profit,
+       coalesce(expenses_monthly.expenses, 0)::numeric as operating_expenses,
+       (coalesce(sales_monthly.revenue, 0) - coalesce(sales_monthly.cost_of_goods, 0)
+         - coalesce(expenses_monthly.expenses, 0))::numeric as net_operating_profit
+from periods
+left join sales_monthly using (organization_id, period_start)
+left join expenses_monthly using (organization_id, period_start);
+
+create or replace view public.cash_flow_performance as
+with inflows as (
+  select organization_id, date_trunc('month', payment_date)::date as period_start, sum(amount) as amount
+  from public.payments
+  where status = 'posted' and payment_type in ('customer_payment','other')
+    and public.has_org_membership(organization_id)
+    and public.organization_has_plan_feature(organization_id, 'cash_flow_report')
+  group by organization_id, date_trunc('month', payment_date)::date
+  union all
+  select organization_id, date_trunc('month', sale_date)::date, sum(paid_amount)
+  from public.sales
+  where status = 'confirmed' and customer_id is null
+    and public.has_org_membership(organization_id)
+    and public.organization_has_plan_feature(organization_id, 'cash_flow_report')
+  group by organization_id, date_trunc('month', sale_date)::date
+), outflows as (
+  select organization_id, date_trunc('month', payment_date)::date as period_start, sum(amount) as amount
+  from public.supplier_payments
+  where public.has_org_membership(organization_id)
+    and public.organization_has_plan_feature(organization_id, 'cash_flow_report')
+  group by organization_id, date_trunc('month', payment_date)::date
+  union all
+  select organization_id, date_trunc('month', expense_date)::date, sum(amount)
+  from public.expenses
+  where public.has_org_membership(organization_id)
+    and public.organization_has_plan_feature(organization_id, 'cash_flow_report')
+  group by organization_id, date_trunc('month', expense_date)::date
+), all_periods as (
+  select organization_id, period_start from inflows
+  union select organization_id, period_start from outflows
+), inflow_totals as (
+  select organization_id, period_start, sum(amount) as cash_in from inflows group by organization_id, period_start
+), outflow_totals as (
+  select organization_id, period_start, sum(amount) as cash_out from outflows group by organization_id, period_start
+)
+select all_periods.organization_id, all_periods.period_start,
+       coalesce(inflow_totals.cash_in, 0)::numeric as cash_in,
+       coalesce(outflow_totals.cash_out, 0)::numeric as cash_out,
+       (coalesce(inflow_totals.cash_in, 0) - coalesce(outflow_totals.cash_out, 0))::numeric as net_cash_flow
+from all_periods
+left join inflow_totals using (organization_id, period_start)
+left join outflow_totals using (organization_id, period_start);
+
+create or replace view public.branch_sales_performance as
+select s.organization_id, s.branch_id, b.name as branch_name,
+       count(*)::integer as invoice_count, sum(s.total_amount) as revenue,
+       sum(s.total_cost) as cost_of_goods, sum(s.total_amount - s.total_cost) as gross_profit
+from public.sales s
+join public.branches b on b.id = s.branch_id and b.organization_id = s.organization_id
+where s.status = 'confirmed'
+  and public.has_org_membership(s.organization_id)
+  and public.organization_has_plan_feature(s.organization_id, 'branch_reports')
+group by s.organization_id, s.branch_id, b.name;
+
+create or replace view public.branch_stock_balances as
+select b.organization_id, b.id as branch_id, b.name as branch_name,
+       p.id as product_id, p.sku, p.name, p.name as product_name,
+       u.code as unit_code, u.name as unit_name, p.sale_price,
+       coalesce(sum(m.quantity), 0)::numeric as stock_on_hand, p.average_cost,
+       (coalesce(sum(m.quantity), 0) * p.average_cost)::numeric as stock_value,
+       p.low_stock_threshold, (coalesce(sum(m.quantity), 0) <= p.low_stock_threshold) as is_low_stock
+from public.branches b
+join public.products p on p.organization_id = b.organization_id and p.is_active
+join public.units u on u.id = p.unit_id
+left join public.stock_movements m
+  on m.branch_id = b.id and m.product_id = p.id and m.organization_id = p.organization_id
+where b.is_active
+  and public.has_org_membership(b.organization_id)
+  and public.organization_has_plan_feature(b.organization_id, 'multi_branch')
+group by b.organization_id, b.id, b.name, p.id, p.sku, p.name,
+         u.code, u.name, p.sale_price, p.average_cost, p.low_stock_threshold;
+
+alter view public.daily_sales_performance set (security_invoker = true);
+alter view public.product_sales_performance set (security_invoker = true);
+alter view public.monthly_sales_performance set (security_invoker = true);
+alter view public.yearly_sales_performance set (security_invoker = true);
+alter view public.purchase_analytics set (security_invoker = true);
+alter view public.profit_loss_performance set (security_invoker = true);
+alter view public.cash_flow_performance set (security_invoker = true);
+alter view public.branch_sales_performance set (security_invoker = true);
+alter view public.branch_stock_balances set (security_invoker = true);
+
+-- Payment rows and allocations expose customer ledger details even when a
+-- caller bypasses the ledger screens and queries base tables directly.
+alter table public.payments enable row level security;
+drop policy if exists customer_payment_plan_entitlement_select on public.payments;
+create policy customer_payment_plan_entitlement_select
+  on public.payments as restrictive for select to authenticated
+  using (
+    public.is_platform_admin()
+    or (
+      public.has_org_membership(organization_id)
+      and public.has_org_permission(organization_id, 'customers', 'view')
+      and (
+        public.organization_has_plan_feature(organization_id, 'payment_receipt_mgmt')
+        or public.organization_has_plan_feature(organization_id, 'customer_ledger')
+        or public.organization_has_plan_feature(organization_id, 'customer_debt_tracking')
+      )
+    )
+  );
+
+alter table public.payment_allocations enable row level security;
+drop policy if exists customer_payment_allocation_plan_entitlement_select on public.payment_allocations;
+create policy customer_payment_allocation_plan_entitlement_select
+  on public.payment_allocations as restrictive for select to authenticated
+  using (
+    public.is_platform_admin()
+    or (
+      public.has_org_membership(organization_id)
+      and public.has_org_permission(organization_id, 'customers', 'view')
+      and (
+        public.organization_has_plan_feature(organization_id, 'payment_receipt_mgmt')
+        or public.organization_has_plan_feature(organization_id, 'customer_ledger')
+        or public.organization_has_plan_feature(organization_id, 'customer_debt_tracking')
+      )
+    )
+  );
+
+-- Supplier payment rows are part of the Business/Pro payables module. Keep
+-- their existing membership policy and require the plan entitlement as an
+-- additional restrictive condition for authenticated direct table reads.
+alter table public.supplier_payments enable row level security;
+drop policy if exists supplier_payments_plan_entitlement_select on public.supplier_payments;
+create policy supplier_payments_plan_entitlement_select
+  on public.supplier_payments as restrictive for select to authenticated
+  using (
+    public.is_platform_admin()
+    or (
+      public.has_org_membership(organization_id)
+      and public.has_org_permission(organization_id, 'suppliers', 'view')
+      and public.organization_has_plan_feature(organization_id, 'supplier_payables')
+    )
+  );
+
+create or replace function public.get_customer_statement(
+  p_org_id uuid,
+  p_customer_id uuid,
+  p_start_date date default null,
+  p_end_date date default null
+)
+returns table (
+  transaction_date date,
+  transaction_type text,
+  reference_number text,
+  description text,
+  debit numeric(14, 2),
+  credit numeric(14, 2),
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if not public.has_org_membership(p_org_id) then
+    raise exception 'Unauthorized';
+  end if;
+  if not public.has_org_permission(p_org_id, 'customers', 'view') then
+    raise exception 'Your organization role does not allow customer ledger access';
+  end if;
+  if not (
+    public.organization_has_plan_feature(p_org_id, 'customer_ledger')
+    or public.organization_has_plan_feature(p_org_id, 'customer_debt_tracking')
+  ) then
+    raise exception 'Customer ledger is not available on the current plan';
+  end if;
+  if not exists (
+    select 1 from public.customers c
+    where c.id = p_customer_id and c.organization_id = p_org_id
+  ) then
+    raise exception 'Customer does not belong to this organization';
+  end if;
+
+  return query
+  select
+    s.sale_date,
+    'Sale Invoice'::text,
+    s.invoice_number,
+    'Confirmed Sale'::text,
+    s.total_amount,
+    0.00::numeric(14, 2),
+    s.created_at
+  from public.sales s
+  where s.organization_id = p_org_id
+    and s.customer_id = p_customer_id
+    and s.status = 'confirmed'
+    and (p_start_date is null or s.sale_date >= p_start_date)
+    and (p_end_date is null or s.sale_date <= p_end_date)
+
+  union all
+
+  select
+    p.payment_date,
+    'Customer Payment'::text,
+    p.payment_number,
+    coalesce(p.payment_method, 'Payment Received'),
+    0.00::numeric(14, 2),
+    p.amount,
+    p.created_at
+  from public.payments p
+  where p.organization_id = p_org_id
+    and p.customer_id = p_customer_id
+    and p.status = 'posted'
+    and (p_start_date is null or p.payment_date >= p_start_date)
+    and (p_end_date is null or p.payment_date <= p_end_date)
+  order by 1 asc, 7 asc;
+end;
+$$;
+
+revoke all on function public.get_customer_statement(uuid, uuid, date, date) from public, anon;
+grant execute on function public.get_customer_statement(uuid, uuid, date, date) to authenticated;
+-- <<< END 0045_plan_gated_customer_and_supplier_ledgers.sql
+
+-- >>> BEGIN 0046_consistent_plan_limit_fallback.sql
+-- Keep runtime limit resolution aligned with both pricing screens: use a
+-- normalized row first, then the matching legacy plan column. If neither is
+-- configured, return zero rather than silently treating the limit as unlimited.
+create or replace function public.get_organization_feature_limit(p_org_id uuid, p_feature_key text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  f public.features%rowtype;
+  o public.organization_feature_overrides%rowtype;
+  lim integer;
+begin
+  if not (public.has_org_membership(p_org_id) or public.is_platform_admin()) then
+    raise exception 'Access denied';
+  end if;
+
+  select * into f from public.features
+  where feature_key = p_feature_key and is_active and feature_type = 'limit';
+  if not found then
+    return jsonb_build_object(
+      'limit_value', 0, 'has_override', false, 'is_configured', false,
+      'feature_key', p_feature_key
+    );
+  end if;
+
+  select * into o from public.organization_feature_overrides
+  where organization_id = p_org_id and feature_id = f.id and limit_override is not null
+    and starts_at <= now() and (expires_at is null or expires_at > now())
+  order by created_at desc limit 1;
+  if found then
+    return jsonb_build_object(
+      'limit_value', o.limit_override, 'has_override', true, 'is_configured', true,
+      'feature_key', p_feature_key
+    );
+  end if;
+
+  select pfl.limit_value into lim
+  from public.subscriptions s
+  join public.plan_feature_limits pfl on pfl.plan_id = s.plan_id
+  where s.organization_id = p_org_id and pfl.feature_id = f.id;
+
+  if not found then
+    select case p_feature_key
+      when 'max_users' then p.max_users
+      when 'max_products' then p.max_products
+      when 'max_customers' then p.max_customers
+      when 'max_suppliers' then p.max_suppliers
+      when 'max_branches' then p.max_branches
+      else null
+    end into lim
+    from public.subscriptions s
+    join public.plans p on p.id = s.plan_id
+    where s.organization_id = p_org_id;
+  end if;
+
+  if not found or lim is null then
+    return jsonb_build_object(
+      'limit_value', 0, 'has_override', false, 'is_configured', false,
+      'feature_key', p_feature_key
+    );
+  end if;
+
+  return jsonb_build_object(
+    'limit_value', lim, 'has_override', false, 'is_configured', true,
+    'source', case when exists (
+      select 1 from public.subscriptions s
+      join public.plan_feature_limits pfl on pfl.plan_id=s.plan_id
+      where s.organization_id=p_org_id and pfl.feature_id=f.id
+    ) then 'normalized' else 'legacy_plan_column' end,
+    'feature_key', p_feature_key
+  );
+end;
+$$;
+
+revoke all on function public.get_organization_feature_limit(uuid,text) from public, anon;
+grant execute on function public.get_organization_feature_limit(uuid,text) to authenticated;
+-- <<< END 0046_consistent_plan_limit_fallback.sql
+
+-- >>> BEGIN 0047_customer_payment_idempotency_fingerprint.sql
+-- Bind customer-payment retries to their complete normalized request. Existing
+-- payment rows are preserved; the new fingerprint is nullable for legacy rows.
+begin;
+
+-- Verify the additive migration contract before defining the replacement RPC.
+-- Fail with the mismatched columns rather than guessing at a drifted ledger.
+do $$
+declare
+  incompatible_columns text[];
+  fingerprint_type text;
+begin
+  select array_agg(required.table_name||'.'||required.column_name||
+      ' (expected '||required.expected_udt_name||', found '||coalesce(c.udt_name,'missing')||')'
+      order by required.table_name,required.column_name)
+    into incompatible_columns
+  from (values
+    ('payments','id','uuid'),('payments','organization_id','uuid'),('payments','customer_id','uuid'),
+    ('payments','payment_number','text'),('payments','amount','numeric'),
+    ('payments','allocated_amount','numeric'),('payments','payment_method','text'),
+    ('payments','payment_date','date'),('payments','reference_number','text'),('payments','notes','text'),
+    ('payments','status','text'),('payments','idempotency_key','text'),('payments','created_by','uuid'),
+    ('payment_allocations','organization_id','uuid'),('payment_allocations','payment_id','uuid'),
+    ('payment_allocations','sale_id','uuid'),('payment_allocations','allocated_amount','numeric'),
+    ('sales','id','uuid'),('sales','organization_id','uuid'),('sales','customer_id','uuid'),
+    ('sales','status','text'),('sales','total_amount','numeric'),('sales','paid_amount','numeric'),
+    ('sales','payment_status','text'),('sales','updated_at','timestamptz')
+  ) as required(table_name,column_name,expected_udt_name)
+  left join information_schema.columns c
+    on c.table_schema='public' and c.table_name=required.table_name
+   and c.column_name=required.column_name
+  where c.column_name is null or c.udt_name<>required.expected_udt_name;
+
+  select c.udt_name into fingerprint_type
+  from information_schema.columns c
+  where c.table_schema='public' and c.table_name='payments'
+    and c.column_name='request_fingerprint';
+  if incompatible_columns is not null or (fingerprint_type is not null and fingerprint_type<>'text') then
+    raise exception 'Customer payment fingerprint migration is incompatible with the existing schema. Mismatched columns: %; request_fingerprint type: %. Inspect the payment schema before retrying.',
+      coalesce(array_to_string(incompatible_columns,', '),'none'),coalesce(fingerprint_type,'not present');
+  end if;
+end;
+$$;
+
+alter table public.payments
+  add column if not exists request_fingerprint text;
+
+create or replace function public.record_customer_payment_and_allocate(
+  p_org_id uuid,
+  p_customer_id uuid,
+  p_amount numeric,
+  p_payment_method text,
+  p_allocations jsonb,
+  p_reference_number text default null,
+  p_notes text default null,
+  p_idempotency_key text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_payment public.payments%rowtype;
+  v_sale public.sales%rowtype;
+  v_alloc jsonb;
+  v_sale_id uuid;
+  v_alloc_amt numeric(14,2);
+  v_total_allocated numeric(14,2) := 0;
+  v_amount numeric(14,2);
+  v_payment_num text;
+  v_payment_id uuid;
+  v_fingerprint text;
+  v_normalized_allocations jsonb;
+  v_existing_allocations jsonb;
+begin
+  if v_user_id is null then raise exception 'Authentication required'; end if;
+  if not public.has_org_permission(p_org_id,'customers','update') then raise exception 'Unauthorized'; end if;
+  if p_amount is null or p_amount <= 0 or p_amount::text in ('NaN','Infinity','-Infinity') then
+    raise exception 'Payment amount must be a finite number greater than zero';
+  end if;
+  v_amount := round(p_amount,2);
+  if v_amount<=0 then raise exception 'Payment amount is below the supported currency precision'; end if;
+  if p_payment_method is null or p_payment_method not in ('cash','bank_transfer','mobile_money','kbz_pay','wave_pay','other') then
+    raise exception 'Unsupported payment method';
+  end if;
+  if p_idempotency_key is null or length(btrim(p_idempotency_key)) not between 8 and 200 then
+    raise exception 'A valid idempotency key is required';
+  end if;
+  if p_allocations is null or jsonb_typeof(p_allocations) <> 'array' then
+    raise exception 'Allocations must be a JSON array';
+  end if;
+  if not exists(select 1 from public.customers c where c.id=p_customer_id and c.organization_id=p_org_id and c.is_active) then
+    raise exception 'Customer does not belong to this organization or is inactive';
+  end if;
+
+  -- Validate and canonicalize the whole request before looking up a retry key.
+  -- Sorting by UUID makes equivalent allocation arrays fingerprint identically.
+  if exists(select 1 from jsonb_array_elements(p_allocations) x(value)
+      group by (value->>'sale_id') having count(*)>1) then
+    raise exception 'Duplicate invoice allocation';
+  end if;
+  for v_alloc in select value from jsonb_array_elements(p_allocations) loop
+    if jsonb_typeof(v_alloc)<>'object'
+       or nullif(v_alloc->>'sale_id','') is null
+       or nullif(v_alloc->>'amount','') is null then
+      raise exception 'Each allocation needs a sale_id and amount';
+    end if;
+    v_sale_id := (v_alloc->>'sale_id')::uuid;
+    if (v_alloc->>'amount')::numeric::text in ('NaN','Infinity','-Infinity') then
+      raise exception 'Allocation amount must be a finite number';
+    end if;
+    v_alloc_amt := round((v_alloc->>'amount')::numeric,2);
+    if v_alloc_amt<=0 then
+      raise exception 'Allocation amount must be greater than zero at supported currency precision';
+    end if;
+    v_total_allocated := v_total_allocated+v_alloc_amt;
+  end loop;
+  if v_total_allocated>v_amount then raise exception 'Allocations cannot exceed the payment amount'; end if;
+
+  if exists (
+    select 1 from (
+      select (value->>'sale_id')::uuid as sale_id
+      from jsonb_array_elements(p_allocations) x(value)
+    ) normalized group by sale_id having count(*)>1
+  ) then
+    raise exception 'Duplicate invoice allocation';
+  end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'sale_id',(value->>'sale_id')::uuid,
+      'amount',round((value->>'amount')::numeric,2)
+    ) order by (value->>'sale_id')::uuid),'[]'::jsonb)
+    into v_normalized_allocations
+  from jsonb_array_elements(p_allocations) x(value);
+
+  v_fingerprint := md5(jsonb_build_object(
+    'organization_id',p_org_id,
+    'customer_id',p_customer_id,
+    'amount',v_amount,
+    'payment_method',p_payment_method,
+    'reference_number',p_reference_number,
+    'notes',p_notes,
+    'allocations',v_normalized_allocations
+  )::text);
+
+  -- Serialize same-key requests so concurrent retries observe and return the
+  -- first committed result instead of racing into a unique-index error.
+  perform pg_advisory_xact_lock(hashtextextended(p_org_id::text||':customer_payment:'||p_idempotency_key,0));
+  select * into v_payment from public.payments p
+  where p.organization_id=p_org_id and p.idempotency_key=p_idempotency_key for update;
+  if found then
+    if v_payment.request_fingerprint is not null then
+      if v_payment.request_fingerprint<>v_fingerprint then
+        raise exception 'Idempotency key was already used for a different payment request';
+      end if;
+    else
+      -- Preserve safe retries for pre-migration rows by comparing their stored
+      -- values and allocations. If history does not match, fail closed.
+      select coalesce(jsonb_agg(jsonb_build_object(
+          'sale_id',pa.sale_id,
+          'amount',round(pa.allocated_amount,2)
+        ) order by pa.sale_id),'[]'::jsonb)
+        into v_existing_allocations
+      from public.payment_allocations pa
+      where pa.organization_id=p_org_id and pa.payment_id=v_payment.id;
+      if v_payment.customer_id is distinct from p_customer_id
+         or v_payment.amount is distinct from v_amount
+         or v_payment.payment_method is distinct from p_payment_method
+         or v_payment.reference_number is distinct from p_reference_number
+         or v_payment.notes is distinct from p_notes
+         or v_existing_allocations is distinct from v_normalized_allocations then
+        raise exception 'Idempotency key was already used for a different payment request';
+      end if;
+    end if;
+    return jsonb_build_object('success',true,'payment_id',v_payment.id,'payment_number',v_payment.payment_number,
+      'allocated_amount',v_payment.allocated_amount,'unallocated_amount',v_payment.amount-v_payment.allocated_amount);
+  end if;
+
+  v_payment_num := public.next_document_number(p_org_id,'customer_payment');
+  insert into public.payments(organization_id,customer_id,payment_number,payment_date,amount,
+    allocated_amount,payment_method,reference_number,notes,status,idempotency_key,request_fingerprint,created_by)
+  values(p_org_id,p_customer_id,v_payment_num,current_date,v_amount,0,p_payment_method,
+    p_reference_number,p_notes,'posted',p_idempotency_key,v_fingerprint,v_user_id)
+  returning id into v_payment_id;
+
+  -- UUID order ensures concurrent multi-invoice requests acquire locks consistently.
+  for v_alloc in select value from jsonb_array_elements(v_normalized_allocations)
+      order by (value->>'sale_id')::uuid loop
+    v_sale_id := (v_alloc->>'sale_id')::uuid;
+    v_alloc_amt := (v_alloc->>'amount')::numeric(14,2);
+    select * into v_sale from public.sales s
+      where s.id=v_sale_id and s.organization_id=p_org_id for update;
+    if not found then raise exception 'Invoice does not belong to this organization'; end if;
+    if v_sale.status<>'confirmed' then raise exception 'Only confirmed invoices can receive allocations'; end if;
+    if v_sale.customer_id is distinct from p_customer_id then raise exception 'Invoice belongs to another customer'; end if;
+    if v_alloc_amt>greatest(v_sale.total_amount-v_sale.paid_amount,0) then raise exception 'Allocation exceeds invoice outstanding balance'; end if;
+    insert into public.payment_allocations(organization_id,payment_id,sale_id,allocated_amount)
+      values(p_org_id,v_payment_id,v_sale_id,v_alloc_amt);
+    update public.sales set paid_amount=paid_amount+v_alloc_amt,
+      payment_status=case when paid_amount+v_alloc_amt>=total_amount then 'paid' else 'partial' end,
+      updated_at=now()
+      where id=v_sale_id and organization_id=p_org_id;
+  end loop;
+  update public.payments set allocated_amount=v_total_allocated where id=v_payment_id and organization_id=p_org_id;
+  insert into public.audit_logs(organization_id,user_id,action,entity_type,entity_id,payload)
+  values(p_org_id,v_user_id,'customer_payment.create','payment',v_payment_id,
+    jsonb_build_object('payment_number',v_payment_num,'amount',v_amount,'allocated_amount',v_total_allocated,
+      'idempotency_key',p_idempotency_key));
+  return jsonb_build_object('success',true,'payment_id',v_payment_id,'payment_number',v_payment_num,
+    'allocated_amount',v_total_allocated,'unallocated_amount',v_amount-v_total_allocated);
+end;
+$$;
+
+revoke all on function public.record_customer_payment_and_allocate(uuid,uuid,numeric,text,jsonb,text,text,text) from public,anon;
+grant execute on function public.record_customer_payment_and_allocate(uuid,uuid,numeric,text,jsonb,text,text,text) to authenticated;
+
+notify pgrst,'reload schema';
+commit;
+-- <<< END 0047_customer_payment_idempotency_fingerprint.sql
+
+-- >>> BEGIN 0048_supplier_payment_reversal.sql
+-- Audited compensating reversal for supplier payments.
+-- Requires 0044's verified allocation contract; does not delete or mutate the
+-- source payment/allocation rows. A payment can only be fully reversed once.
+begin;
+
+create table if not exists public.supplier_payment_reversals (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  supplier_payment_id uuid not null,
+  amount numeric(14,2) not null check (amount > 0),
+  reason text not null check (length(btrim(reason)) between 5 and 1000),
+  idempotency_key text not null check (length(btrim(idempotency_key)) between 8 and 200),
+  request_fingerprint text not null,
+  created_by uuid not null references public.profiles(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  unique (organization_id, supplier_payment_id),
+  unique (organization_id, idempotency_key),
+  unique (organization_id, id),
+  constraint supplier_payment_reversals_org_payment_fk
+    foreign key (organization_id, supplier_payment_id)
+    references public.supplier_payments(organization_id, id) on delete restrict
+);
+
+create index if not exists supplier_payment_reversals_org_created_idx
+  on public.supplier_payment_reversals(organization_id, created_at desc);
+
+create table if not exists public.supplier_payment_reversal_allocations (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  reversal_id uuid not null,
+  purchase_id uuid not null,
+  amount numeric(14,2) not null check (amount > 0),
+  created_at timestamptz not null default now(),
+  unique (organization_id, reversal_id, purchase_id),
+  constraint supplier_reversal_allocations_org_reversal_fk
+    foreign key (organization_id, reversal_id)
+    references public.supplier_payment_reversals(organization_id, id) on delete restrict,
+  constraint supplier_reversal_allocations_org_purchase_fk
+    foreign key (organization_id, purchase_id)
+    references public.purchases(organization_id, id) on delete restrict
+);
+
+create index if not exists supplier_payment_reversal_allocations_org_purchase_idx
+  on public.supplier_payment_reversal_allocations(organization_id, purchase_id);
+
+alter table public.supplier_payment_reversals enable row level security;
+alter table public.supplier_payment_reversal_allocations enable row level security;
+drop policy if exists supplier_payment_reversals_read_members on public.supplier_payment_reversals;
+create policy supplier_payment_reversals_read_members on public.supplier_payment_reversals
+  for select to authenticated
+  using ((public.has_org_permission(organization_id,'purchases','view')
+      and public.organization_has_plan_feature(organization_id,'supplier_payables'))
+    or public.is_platform_admin());
+drop policy if exists supplier_payment_reversal_allocations_read_members on public.supplier_payment_reversal_allocations;
+create policy supplier_payment_reversal_allocations_read_members on public.supplier_payment_reversal_allocations
+  for select to authenticated
+  using ((public.has_org_permission(organization_id,'purchases','view')
+      and public.organization_has_plan_feature(organization_id,'supplier_payables'))
+    or public.is_platform_admin());
+revoke all on public.supplier_payment_reversals, public.supplier_payment_reversal_allocations from public, anon, authenticated;
+grant select on public.supplier_payment_reversals, public.supplier_payment_reversal_allocations to authenticated;
+grant select on public.supplier_payment_reversals, public.supplier_payment_reversal_allocations to service_role;
+
+create or replace function public.reverse_supplier_payment(
+  p_org_id uuid,
+  p_supplier_payment_id uuid,
+  p_reason text,
+  p_idempotency_key text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_payment public.supplier_payments%rowtype;
+  v_existing public.supplier_payment_reversals%rowtype;
+  v_reversal_id uuid := gen_random_uuid();
+  v_fingerprint text;
+  v_allocation record;
+  v_purchase public.purchases%rowtype;
+  v_allocation_count integer := 0;
+  v_allocated numeric(14,2) := 0;
+begin
+  if v_user_id is null then raise exception 'Authentication required'; end if;
+  if not public.has_org_permission(p_org_id,'purchases','update') then raise exception 'Unauthorized'; end if;
+  if p_reason is null or length(btrim(p_reason)) not between 5 and 1000 then
+    raise exception 'A reversal reason between 5 and 1000 characters is required';
+  end if;
+  if p_idempotency_key is null or length(btrim(p_idempotency_key)) not between 8 and 200 then
+    raise exception 'A valid idempotency key is required';
+  end if;
+
+  v_fingerprint := md5(jsonb_build_object(
+    'organization_id',p_org_id,
+    'supplier_payment_id',p_supplier_payment_id,
+    'reason',btrim(p_reason)
+  )::text);
+  perform pg_advisory_xact_lock(hashtextextended(p_org_id::text||':supplier_payment_reversal:'||p_idempotency_key,0));
+
+  select * into v_existing
+  from public.supplier_payment_reversals r
+  where r.organization_id=p_org_id and r.idempotency_key=p_idempotency_key
+  for update;
+  if found then
+    if v_existing.request_fingerprint is distinct from v_fingerprint then
+      raise exception 'Idempotency key was already used for a different supplier payment reversal';
+    end if;
+    return jsonb_build_object('success',true,'reversal_id',v_existing.id,
+      'supplier_payment_id',v_existing.supplier_payment_id,'amount',v_existing.amount,
+      'created_at',v_existing.created_at,'replayed',true);
+  end if;
+
+  select * into v_payment
+  from public.supplier_payments sp
+  where sp.id=p_supplier_payment_id and sp.organization_id=p_org_id
+  for update;
+  if not found then raise exception 'Supplier payment does not belong to this organization'; end if;
+  perform 1 from public.suppliers s
+    where s.id=v_payment.supplier_id and s.organization_id=p_org_id
+    for update;
+  if not found then raise exception 'Supplier payment has no valid supplier in this organization'; end if;
+  if exists(select 1 from public.supplier_payment_reversals r
+      where r.organization_id=p_org_id and r.supplier_payment_id=v_payment.id) then
+    raise exception 'Supplier payment is already reversed';
+  end if;
+
+  if v_payment.amount is null or v_payment.amount<=0 then raise exception 'Supplier payment amount is invalid'; end if;
+  insert into public.supplier_payment_reversals(
+    id,organization_id,supplier_payment_id,amount,reason,idempotency_key,request_fingerprint,created_by
+  ) values (
+    v_reversal_id,p_org_id,v_payment.id,v_payment.amount,btrim(p_reason),p_idempotency_key,v_fingerprint,v_user_id
+  );
+
+  -- Compensate each posted allocation in stable order. Source allocations remain
+  -- immutable and are retained for audit/history.
+  for v_allocation in
+    select a.purchase_id,a.amount
+    from public.supplier_payment_allocations a
+    where a.organization_id=p_org_id and a.supplier_payment_id=v_payment.id
+    order by a.purchase_id
+    for update
+  loop
+    select * into v_purchase from public.purchases p
+      where p.id=v_allocation.purchase_id and p.organization_id=p_org_id
+      for update;
+    if not found then raise exception 'An allocated purchase is missing or belongs to another organization'; end if;
+    if v_purchase.supplier_id<>v_payment.supplier_id then raise exception 'Allocated purchase belongs to another supplier'; end if;
+    if v_purchase.paid_amount<v_allocation.amount then raise exception 'Purchase paid balance is inconsistent; reversal stopped'; end if;
+    update public.purchases set paid_amount=paid_amount-v_allocation.amount,updated_at=now()
+      where id=v_purchase.id and organization_id=p_org_id;
+    insert into public.supplier_payment_reversal_allocations(organization_id,reversal_id,purchase_id,amount)
+      values(p_org_id,v_reversal_id,v_purchase.id,v_allocation.amount);
+    v_allocated := v_allocated+v_allocation.amount;
+    v_allocation_count := v_allocation_count+1;
+  end loop;
+
+  if v_allocated>v_payment.amount then raise exception 'Supplier payment allocations exceed the payment amount'; end if;
+
+  -- Legacy receive_purchase payments have no allocation row but point to their
+  -- single purchase. Preserve that relationship and compensate it once.
+  if v_allocation_count=0 and v_payment.purchase_id is not null then
+    select * into v_purchase from public.purchases p
+      where p.id=v_payment.purchase_id and p.organization_id=p_org_id
+      for update;
+    if not found then raise exception 'Linked purchase is missing or belongs to another organization'; end if;
+    if v_purchase.supplier_id<>v_payment.supplier_id then raise exception 'Linked purchase belongs to another supplier'; end if;
+    if v_purchase.paid_amount<v_payment.amount then raise exception 'Purchase paid balance is inconsistent; reversal stopped'; end if;
+    update public.purchases set paid_amount=paid_amount-v_payment.amount,updated_at=now()
+      where id=v_purchase.id and organization_id=p_org_id;
+    insert into public.supplier_payment_reversal_allocations(organization_id,reversal_id,purchase_id,amount)
+      values(p_org_id,v_reversal_id,v_purchase.id,v_payment.amount);
+  end if;
+
+  insert into public.audit_logs(organization_id,user_id,action,entity_type,entity_id,payload)
+  values(p_org_id,v_user_id,'supplier_payment.reverse','supplier_payment',v_payment.id,
+    jsonb_build_object('reversal_id',v_reversal_id,'amount',v_payment.amount,
+      'reason',btrim(p_reason),'idempotency_key',p_idempotency_key,
+      'allocated_amount',case when v_allocation_count=0 and v_payment.purchase_id is not null then v_payment.amount else v_allocated end));
+
+  return jsonb_build_object('success',true,'reversal_id',v_reversal_id,
+    'supplier_payment_id',v_payment.id,'amount',v_payment.amount,'replayed',false);
+end;
+$$;
+
+revoke all on function public.reverse_supplier_payment(uuid,uuid,text,text) from public,anon;
+grant execute on function public.reverse_supplier_payment(uuid,uuid,text,text) to authenticated;
+
+-- Report balances net of reversals while preserving the original payment row.
+create or replace view public.supplier_balances_summary as
+select s.id as supplier_id,s.organization_id,s.name as supplier_name,s.phone,s.opening_balance,
+  coalesce(purch_agg.total_purchases,0.00) as total_received_purchases,
+  coalesce(pay_agg.total_paid,0.00) as total_payments_made,
+  (s.opening_balance+coalesce(purch_agg.total_purchases,0.00)-coalesce(pay_agg.total_paid,0.00)) as current_payable
+from public.suppliers s
+left join (
+  select supplier_id,organization_id,sum(total_amount) as total_purchases
+  from public.purchases where status='received' group by supplier_id,organization_id
+) purch_agg on purch_agg.supplier_id=s.id and purch_agg.organization_id=s.organization_id
+left join (
+  select sp.supplier_id,sp.organization_id,sum(sp.amount-coalesce(r.amount,0)) as total_paid
+  from public.supplier_payments sp
+  left join public.supplier_payment_reversals r
+    on r.organization_id=sp.organization_id and r.supplier_payment_id=sp.id
+  group by sp.supplier_id,sp.organization_id
+) pay_agg on pay_agg.supplier_id=s.id and pay_agg.organization_id=s.organization_id
+where s.is_active=true
+  and public.has_org_membership(s.organization_id)
+  and public.organization_has_plan_feature(s.organization_id,'supplier_payables');
+alter view public.supplier_balances_summary set (security_invoker=true);
+
+-- A reversed payment is a cash inflow on the reversal date. Keep the original
+-- outflow on its original date; do not rewrite historical cash movement.
+create or replace view public.cash_flow_performance as
+with inflows as (
+  select organization_id,date_trunc('month',payment_date)::date as period_start,sum(amount) as amount
+  from public.payments
+  where status='posted' and payment_type in ('customer_payment','other')
+    and public.has_org_membership(organization_id)
+    and public.organization_has_plan_feature(organization_id,'cash_flow_report')
+  group by organization_id,date_trunc('month',payment_date)::date
+  union all
+  select organization_id,date_trunc('month',sale_date)::date,sum(paid_amount)
+  from public.sales
+  where status='confirmed' and customer_id is null
+    and public.has_org_membership(organization_id)
+    and public.organization_has_plan_feature(organization_id,'cash_flow_report')
+  group by organization_id,date_trunc('month',sale_date)::date
+  union all
+  select r.organization_id,date_trunc('month',r.created_at)::date,sum(r.amount)
+  from public.supplier_payment_reversals r
+  where public.has_org_membership(r.organization_id)
+    and public.organization_has_plan_feature(r.organization_id,'cash_flow_report')
+  group by r.organization_id,date_trunc('month',r.created_at)::date
+), outflows as (
+  select organization_id,date_trunc('month',payment_date)::date as period_start,sum(amount) as amount
+  from public.supplier_payments
+  where public.has_org_membership(organization_id)
+    and public.organization_has_plan_feature(organization_id,'cash_flow_report')
+  group by organization_id,date_trunc('month',payment_date)::date
+  union all
+  select organization_id,date_trunc('month',expense_date)::date,sum(amount)
+  from public.expenses
+  where public.has_org_membership(organization_id)
+    and public.organization_has_plan_feature(organization_id,'cash_flow_report')
+  group by organization_id,date_trunc('month',expense_date)::date
+), all_periods as (
+  select organization_id,period_start from inflows union
+  select organization_id,period_start from outflows
+), inflow_totals as (
+  select organization_id,period_start,sum(amount) as cash_in from inflows group by organization_id,period_start
+), outflow_totals as (
+  select organization_id,period_start,sum(amount) as cash_out from outflows group by organization_id,period_start
+)
+select p.organization_id,p.period_start,
+  coalesce(i.cash_in,0)::numeric as cash_in,
+  coalesce(o.cash_out,0)::numeric as cash_out,
+  (coalesce(i.cash_in,0)-coalesce(o.cash_out,0))::numeric as net_cash_flow
+from all_periods p
+left join inflow_totals i using(organization_id,period_start)
+left join outflow_totals o using(organization_id,period_start);
+alter view public.cash_flow_performance set (security_invoker=true);
+
+notify pgrst,'reload schema';
+commit;
+-- <<< END 0048_supplier_payment_reversal.sql
+
+-- >>> BEGIN 0049_revoke_supplier_allocation_client_writes.sql
+-- Restore the intended RPC-only write boundary for supplier allocations.
+-- Keep authenticated reads subject to the existing tenant RLS policy and
+-- preserve service_role access for trusted server operations.
+begin;
+
+revoke all privileges on table public.supplier_payment_allocations
+  from public, anon, authenticated;
+grant select on table public.supplier_payment_allocations
+  to authenticated, service_role;
+
+commit;
+-- <<< END 0049_revoke_supplier_allocation_client_writes.sql
+
+-- >>> BEGIN 0050_supplier_allocation_legacy_compatibility.sql
+-- Extend the existing supplier allocation relation without renaming or dropping
+-- legacy columns. The production legacy contract uses org_id/payment_id; the
+-- application contract uses organization_id/supplier_payment_id.
+begin;
+
+do $$
+declare
+  relation_oid regclass := to_regclass('public.supplier_payment_allocations');
+  has_legacy_org boolean;
+  has_legacy_payment boolean;
+  bad_types text[];
+  bad_count bigint;
+begin
+  if relation_oid is null then
+    raise exception 'public.supplier_payment_allocations is missing; refusing to create a second allocation ledger';
+  end if;
+
+  select array_agg(req.column_name||' expected '||req.expected_type||', found '||coalesce(c.udt_name,'missing') order by req.column_name)
+    into bad_types
+  from (values
+    ('id','uuid'),('purchase_id','uuid'),('amount','numeric')
+  ) req(column_name,expected_type)
+  left join information_schema.columns c
+    on c.table_schema='public' and c.table_name='supplier_payment_allocations' and c.column_name=req.column_name
+  where c.column_name is null or c.udt_name<>req.expected_type;
+  if bad_types is not null then
+    raise exception 'Unsupported supplier allocation schema: %',array_to_string(bad_types,', ');
+  end if;
+
+  select exists(select 1 from information_schema.columns where table_schema='public' and table_name='supplier_payment_allocations' and column_name='org_id'),
+         exists(select 1 from information_schema.columns where table_schema='public' and table_name='supplier_payment_allocations' and column_name='payment_id')
+    into has_legacy_org,has_legacy_payment;
+  if has_legacy_org is distinct from has_legacy_payment then
+    raise exception 'Unsupported partial legacy allocation mapping: org_id and payment_id must either both exist or both be absent';
+  end if;
+  if has_legacy_org then
+    select array_agg(req.column_name||' expected '||req.expected_type||', found '||c.udt_name order by req.column_name)
+      into bad_types
+    from (values ('org_id','uuid'),('payment_id','uuid')) req(column_name,expected_type)
+    join information_schema.columns c
+      on c.table_schema='public' and c.table_name='supplier_payment_allocations' and c.column_name=req.column_name
+    where c.udt_name<>req.expected_type;
+    if bad_types is not null then raise exception 'Unsupported legacy allocation column types: %',array_to_string(bad_types,', '); end if;
+  end if;
+end;
+$$;
+
+alter table public.supplier_payment_allocations
+  add column if not exists organization_id uuid,
+  add column if not exists supplier_payment_id uuid;
+
+do $$
+declare
+  has_legacy_org boolean;
+  has_legacy_payment boolean;
+  mismatch_count bigint;
+begin
+  select exists(select 1 from information_schema.columns where table_schema='public' and table_name='supplier_payment_allocations' and column_name='org_id'),
+         exists(select 1 from information_schema.columns where table_schema='public' and table_name='supplier_payment_allocations' and column_name='payment_id')
+    into has_legacy_org,has_legacy_payment;
+
+  if has_legacy_org and has_legacy_payment then
+    execute 'select count(*) from public.supplier_payment_allocations where (organization_id is not null and organization_id is distinct from org_id) or (supplier_payment_id is not null and supplier_payment_id is distinct from payment_id)'
+      into mismatch_count;
+    if mismatch_count>0 then raise exception 'Legacy and canonical supplier allocation identifiers conflict on % rows; no data was changed',mismatch_count; end if;
+
+    -- The relation is empty in the inspected production state. For populated
+    -- installations, only map values after proving both parents and tenant agree.
+    execute 'select count(*) from public.supplier_payment_allocations a left join public.supplier_payments sp on sp.id=a.payment_id left join public.purchases pu on pu.id=a.purchase_id where a.org_id is null or a.payment_id is null or a.purchase_id is null or a.amount is null or a.amount<=0 or sp.id is null or pu.id is null or a.org_id<>sp.organization_id or a.org_id<>pu.organization_id or sp.supplier_id<>pu.supplier_id'
+      into mismatch_count;
+    if mismatch_count>0 then raise exception 'Legacy allocation references or tenant ownership are invalid on % rows; no data was changed',mismatch_count; end if;
+
+    execute 'update public.supplier_payment_allocations set organization_id=org_id,supplier_payment_id=payment_id where organization_id is null or supplier_payment_id is null';
+  else
+    select count(*) into mismatch_count from public.supplier_payment_allocations
+    where organization_id is null or supplier_payment_id is null;
+    if mismatch_count>0 then raise exception 'Canonical supplier allocation ownership is missing on % rows',mismatch_count; end if;
+  end if;
+
+  select count(*) into mismatch_count
+  from (
+    select organization_id,supplier_payment_id,purchase_id from public.supplier_payment_allocations
+    group by organization_id,supplier_payment_id,purchase_id having count(*)>1
+  ) duplicates;
+  if mismatch_count>0 then raise exception 'Duplicate supplier payment/purchase allocations exist on % key(s)',mismatch_count; end if;
+
+  select count(*) into mismatch_count
+  from (select supplier_payment_id,sum(amount) as allocated from public.supplier_payment_allocations group by supplier_payment_id) a
+  join public.supplier_payments sp on sp.id=a.supplier_payment_id
+  where a.allocated>sp.amount;
+  if mismatch_count>0 then raise exception 'Supplier payment allocations exceed payment amount on % payments',mismatch_count; end if;
+
+  select count(*) into mismatch_count
+  from (select purchase_id,sum(amount) as allocated from public.supplier_payment_allocations group by purchase_id) a
+  join public.purchases p on p.id=a.purchase_id
+  where a.allocated>p.total_amount;
+  if mismatch_count>0 then raise exception 'Supplier payment allocations exceed purchase total on % purchases',mismatch_count; end if;
+end;
+$$;
+
+alter table public.supplier_payment_allocations
+  alter column organization_id set not null,
+  alter column supplier_payment_id set not null;
+
+-- Keep old required aliases and new canonical columns in sync for legacy callers.
+create or replace function public.sync_supplier_payment_allocation_columns()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+declare
+  row_json jsonb;
+  org_value uuid;
+  payment_value uuid;
+begin
+  row_json := to_jsonb(new);
+  org_value := coalesce(nullif(row_json->>'organization_id','')::uuid,nullif(row_json->>'org_id','')::uuid);
+  payment_value := coalesce(nullif(row_json->>'supplier_payment_id','')::uuid,nullif(row_json->>'payment_id','')::uuid);
+  if org_value is null or payment_value is null then
+    raise exception 'Supplier allocation requires organization and supplier payment references';
+  end if;
+  if row_json ? 'org_id' and row_json->>'org_id' is not null
+     and (row_json->>'org_id')::uuid<>org_value then
+    raise exception 'Legacy org_id conflicts with organization_id';
+  end if;
+  if row_json ? 'payment_id' and row_json->>'payment_id' is not null
+     and (row_json->>'payment_id')::uuid<>payment_value then
+    raise exception 'Legacy payment_id conflicts with supplier_payment_id';
+  end if;
+  row_json := jsonb_set(row_json,'{organization_id}',to_jsonb(org_value),true);
+  row_json := jsonb_set(row_json,'{supplier_payment_id}',to_jsonb(payment_value),true);
+  if row_json ? 'org_id' then row_json := jsonb_set(row_json,'{org_id}',to_jsonb(org_value),true); end if;
+  if row_json ? 'payment_id' then row_json := jsonb_set(row_json,'{payment_id}',to_jsonb(payment_value),true); end if;
+  new := jsonb_populate_record(new,row_json);
+  return new;
+end;
+$$;
+drop trigger if exists supplier_payment_allocation_compat_sync on public.supplier_payment_allocations;
+create trigger supplier_payment_allocation_compat_sync
+  before insert or update on public.supplier_payment_allocations
+  for each row execute function public.sync_supplier_payment_allocation_columns();
+
+create unique index if not exists supplier_payment_allocations_org_payment_purchase_uidx
+  on public.supplier_payment_allocations(organization_id,supplier_payment_id,purchase_id);
+create index if not exists supplier_payment_allocations_org_purchase_idx
+  on public.supplier_payment_allocations(organization_id,purchase_id);
+
+do $$
+begin
+  if not exists(select 1 from pg_constraint where conrelid='public.supplier_payment_allocations'::regclass and conname='supplier_allocations_org_payment_fk') then
+    alter table public.supplier_payment_allocations add constraint supplier_allocations_org_payment_fk
+      foreign key(organization_id,supplier_payment_id) references public.supplier_payments(organization_id,id) not valid;
+  end if;
+  if not exists(select 1 from pg_constraint where conrelid='public.supplier_payment_allocations'::regclass and conname='supplier_allocations_org_purchase_fk') then
+    alter table public.supplier_payment_allocations add constraint supplier_allocations_org_purchase_fk
+      foreign key(organization_id,purchase_id) references public.purchases(organization_id,id) not valid;
+  end if;
+end;
+$$;
+alter table public.supplier_payment_allocations validate constraint supplier_allocations_org_payment_fk;
+alter table public.supplier_payment_allocations validate constraint supplier_allocations_org_purchase_fk;
+
+-- The older permissive tenant policy uses org_id. The sync trigger keeps that
+-- field equal to organization_id; this restrictive policy adds role and plan gates.
+drop policy if exists supplier_payment_allocations_plan_read on public.supplier_payment_allocations;
+create policy supplier_payment_allocations_plan_read on public.supplier_payment_allocations
+  as restrictive for select to authenticated
+  using (public.has_org_permission(organization_id,'purchases','view')
+    and public.organization_has_plan_feature(organization_id,'supplier_payables'));
+
+-- Replace the older payment writer with the validated allocation-aware RPC.
+create or replace function public.record_supplier_payment_and_allocate(
+  p_org_id uuid,
+  p_supplier_id uuid,
+  p_amount numeric,
+  p_payment_method text,
+  p_allocations jsonb default '[]'::jsonb,
+  p_reference_number text default null,
+  p_notes text default null,
+  p_idempotency_key text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_payment public.supplier_payments%rowtype;
+  v_purchase public.purchases%rowtype;
+  v_alloc jsonb;
+  v_purchase_id uuid;
+  v_alloc_amount numeric(14,2);
+  v_total_allocated numeric(14,2) := 0;
+  v_amount numeric(14,2);
+  v_subtotal numeric(14,2);
+  v_purchase_total numeric(14,2);
+  v_payment_number text;
+  v_fingerprint text;
+  v_payment_id uuid;
+  v_single_purchase uuid;
+  v_supplier_opening numeric(14,2);
+  v_supplier_due numeric(14,2);
+begin
+  if v_user_id is null then raise exception 'Authentication required'; end if;
+  if not public.has_org_permission(p_org_id,'purchases','update') then raise exception 'Unauthorized'; end if;
+  if not public.organization_has_plan_feature(p_org_id,'supplier_payables') then raise exception 'Supplier payments are not available on the current plan'; end if;
+  if p_amount is null or p_amount<=0 then raise exception 'Payment amount must be greater than zero'; end if;
+  v_amount := round(p_amount,2);
+  if v_amount<=0 then raise exception 'Payment amount is below supported currency precision'; end if;
+  if p_payment_method is null or p_payment_method not in ('cash','bank_transfer','mobile_money','kbz_pay','wave_pay','other') then
+    raise exception 'Unsupported payment method';
+  end if;
+  if p_idempotency_key is null or length(btrim(p_idempotency_key)) not between 8 and 200 then
+    raise exception 'A valid idempotency key is required';
+  end if;
+  if p_allocations is null or jsonb_typeof(p_allocations)<>'array' then raise exception 'Allocations must be a JSON array'; end if;
+  if not exists(select 1 from public.suppliers s where s.id=p_supplier_id and s.organization_id=p_org_id and s.is_active) then
+    raise exception 'Supplier does not belong to this organization or is inactive';
+  end if;
+
+  if exists(select 1 from jsonb_array_elements(p_allocations) x(value)
+      group by value->>'purchase_id' having count(*)>1) then raise exception 'Duplicate purchase allocation'; end if;
+  for v_alloc in select value from jsonb_array_elements(p_allocations) order by value->>'purchase_id' loop
+    if jsonb_typeof(v_alloc)<>'object' or nullif(v_alloc->>'purchase_id','') is null or nullif(v_alloc->>'amount','') is null then
+      raise exception 'Each allocation needs a purchase_id and amount';
+    end if;
+    v_alloc_amount := (v_alloc->>'amount')::numeric(14,2);
+    if v_alloc_amount<=0 then raise exception 'Allocation amount must be positive'; end if;
+    v_total_allocated := v_total_allocated+v_alloc_amount;
+  end loop;
+  if v_total_allocated>v_amount then raise exception 'Allocations cannot exceed the payment amount'; end if;
+  if jsonb_array_length(p_allocations)=1 then v_single_purchase := (p_allocations->0->>'purchase_id')::uuid; end if;
+  select md5(jsonb_build_object(
+    'organization_id',p_org_id,'supplier_id',p_supplier_id,'amount',v_amount,
+    'payment_method',p_payment_method,'reference_number',p_reference_number,'notes',p_notes,
+    'allocations',(select coalesce(jsonb_agg(value order by value->>'purchase_id'),'[]'::jsonb)
+      from jsonb_array_elements(p_allocations))
+  )::text) into v_fingerprint;
+
+  perform pg_advisory_xact_lock(hashtextextended(p_org_id::text||':supplier_payment:'||p_idempotency_key,0));
+  select * into v_payment from public.supplier_payments sp
+    where sp.organization_id=p_org_id and sp.idempotency_key=p_idempotency_key for update;
+  if found then
+    if v_payment.request_fingerprint is distinct from v_fingerprint then
+      raise exception 'Idempotency key was already used for a different supplier payment';
+    end if;
+    return jsonb_build_object('success',true,'payment_id',v_payment.id,
+      'payment_number',v_payment.payment_number,'amount',v_payment.amount,
+      'allocated_amount',coalesce((select sum(a.amount) from public.supplier_payment_allocations a
+        where a.organization_id=p_org_id and a.supplier_payment_id=v_payment.id),0),
+      'unallocated_amount',v_payment.amount-coalesce((select sum(a.amount) from public.supplier_payment_allocations a
+        where a.organization_id=p_org_id and a.supplier_payment_id=v_payment.id),0));
+  end if;
+
+  select s.opening_balance into v_supplier_opening from public.suppliers s
+    where s.id=p_supplier_id and s.organization_id=p_org_id for update;
+  select greatest(coalesce(v_supplier_opening,0)
+      + coalesce((select sum(p.total_amount) from public.purchases p
+        where p.organization_id=p_org_id and p.supplier_id=p_supplier_id and p.status='received'),0)
+      - coalesce((select sum(sp.amount) from public.supplier_payments sp
+        where sp.organization_id=p_org_id and sp.supplier_id=p_supplier_id),0),0)
+    into v_supplier_due;
+  if v_total_allocated>v_supplier_due then raise exception 'Allocated payment exceeds supplier payable balance after existing advances'; end if;
+
+  for v_alloc in select value from jsonb_array_elements(p_allocations) order by (value->>'purchase_id')::uuid loop
+    v_purchase_id := (v_alloc->>'purchase_id')::uuid;
+    v_alloc_amount := (v_alloc->>'amount')::numeric(14,2);
+    select * into v_purchase from public.purchases p
+      where p.id=v_purchase_id and p.organization_id=p_org_id for update;
+    if not found then raise exception 'Purchase does not belong to this organization'; end if;
+    if v_purchase.supplier_id<>p_supplier_id then raise exception 'Purchase belongs to another supplier'; end if;
+    if v_purchase.status<>'received' then raise exception 'Only received purchases can be allocated for payment'; end if;
+    if coalesce(v_purchase.tax_amount,0)<>0 then raise exception 'Purchase tax requires an organization tax rule before payment'; end if;
+    select coalesce(sum(round(pi.quantity*pi.unit_cost,2)),0)::numeric(14,2) into v_subtotal
+      from public.purchase_items pi where pi.purchase_id=v_purchase_id and pi.organization_id=p_org_id;
+    if v_purchase.discount_amount<0 or v_purchase.discount_amount>v_subtotal then raise exception 'Purchase discount exceeds item subtotal'; end if;
+    v_purchase_total := round(v_subtotal-v_purchase.discount_amount,2);
+    if v_alloc_amount>greatest(v_purchase_total-coalesce(v_purchase.paid_amount,0),0) then
+      raise exception 'Allocation exceeds purchase payable balance';
+    end if;
+    update public.purchases set subtotal=v_subtotal,total=v_purchase_total,total_amount=v_purchase_total,
+      paid_amount=coalesce(paid_amount,0)+v_alloc_amount,updated_at=now()
+      where id=v_purchase_id and organization_id=p_org_id;
+  end loop;
+
+  v_payment_number := public.next_document_number(p_org_id,'supplier_payment');
+  insert into public.supplier_payments(organization_id,supplier_id,purchase_id,payment_number,payment_date,
+    amount,payment_method,reference_number,notes,created_by,idempotency_key,request_fingerprint)
+  values(p_org_id,p_supplier_id,v_single_purchase,v_payment_number,current_date,v_amount,p_payment_method,
+    p_reference_number,p_notes,v_user_id,p_idempotency_key,v_fingerprint)
+  returning id into v_payment_id;
+  for v_alloc in select value from jsonb_array_elements(p_allocations) order by value->>'purchase_id' loop
+    insert into public.supplier_payment_allocations(organization_id,supplier_payment_id,purchase_id,amount)
+    values(p_org_id,v_payment_id,(v_alloc->>'purchase_id')::uuid,(v_alloc->>'amount')::numeric(14,2));
+  end loop;
+  insert into public.audit_logs(organization_id,user_id,action,entity_type,entity_id,payload)
+  values(p_org_id,v_user_id,'supplier_payment.create','supplier_payment',v_payment_id,
+    jsonb_build_object('payment_number',v_payment_number,'amount',v_amount,
+      'allocated_amount',v_total_allocated,'supplier_id',p_supplier_id,'idempotency_key',p_idempotency_key));
+  return jsonb_build_object('success',true,'payment_id',v_payment_id,'payment_number',v_payment_number,
+    'amount',v_amount,'allocated_amount',v_total_allocated,'unallocated_amount',v_amount-v_total_allocated);
+end;
+$$;
+
+revoke all on function public.record_supplier_payment_and_allocate(uuid,uuid,numeric,text,jsonb,text,text,text) from public,anon;
+grant execute on function public.record_supplier_payment_and_allocate(uuid,uuid,numeric,text,jsonb,text,text,text) to authenticated;
+
+notify pgrst,'reload schema';
+commit;
+-- <<< END 0050_supplier_allocation_legacy_compatibility.sql
+
+-- <<< BEGIN 0051_atomic_purchase_order_creation.sql
+begin;
+
+-- Create the order and all its lines as one transaction. A failure in any
+-- validation or insert rolls back the document number, header, and every line.
+create or replace function public.create_purchase_order(
+  p_org_id uuid,
+  p_supplier_id uuid,
+  p_branch_id uuid,
+  p_purchase_date date,
+  p_items jsonb
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_branch_id uuid := p_branch_id;
+  v_purchase_id uuid := gen_random_uuid();
+  v_purchase_number text;
+  v_item jsonb;
+  v_product_id uuid;
+  v_quantity numeric(12,2);
+  v_unit_cost numeric(14,2);
+  v_total numeric(14,2) := 0;
+  v_line_total numeric(14,2);
+begin
+  if v_user_id is null then raise exception 'Authentication required'; end if;
+  if not public.has_org_permission(p_org_id, 'purchases', 'create') then
+    raise exception 'You do not have permission to create purchase orders';
+  end if;
+  if p_supplier_id is null or not exists (
+    select 1 from public.suppliers s
+    where s.id=p_supplier_id and s.organization_id=p_org_id and s.is_active
+  ) then raise exception 'Choose an active supplier in this organization'; end if;
+  if p_purchase_date is null then raise exception 'Purchase date is required'; end if;
+  if p_items is null or jsonb_typeof(p_items)<>'array' or jsonb_array_length(p_items)=0 then
+    raise exception 'Purchase order requires at least one item';
+  end if;
+
+  if v_branch_id is null then
+    select b.id into v_branch_id from public.branches b
+    where b.organization_id=p_org_id and b.is_active
+    order by b.is_default desc, b.created_at, b.id limit 1;
+  end if;
+  if v_branch_id is null or not exists (
+    select 1 from public.branches b
+    where b.id=v_branch_id and b.organization_id=p_org_id and b.is_active
+  ) then raise exception 'Choose an active branch in this organization'; end if;
+
+  -- Validate all lines and calculate the same rounded totals that will be stored.
+  for v_item in select value from jsonb_array_elements(p_items) loop
+    if jsonb_typeof(v_item)<>'object'
+       or nullif(v_item->>'product_id','') is null
+       or nullif(v_item->>'quantity','') is null
+       or nullif(v_item->>'unit_cost','') is null then
+      raise exception 'Each purchase line needs a product, quantity, and unit cost';
+    end if;
+    v_product_id := (v_item->>'product_id')::uuid;
+    v_quantity := (v_item->>'quantity')::numeric;
+    v_unit_cost := (v_item->>'unit_cost')::numeric;
+    if v_quantity::text in ('NaN','Infinity','-Infinity') or v_quantity<=0 then
+      raise exception 'Purchase quantities must be finite and greater than zero';
+    end if;
+    if v_unit_cost::text in ('NaN','Infinity','-Infinity') or v_unit_cost<0 then
+      raise exception 'Purchase unit costs must be finite and cannot be negative';
+    end if;
+    if not exists (
+      select 1 from public.products p
+      where p.id=v_product_id and p.organization_id=p_org_id and p.is_active
+    ) then raise exception 'A selected product is missing, inactive, or belongs to another organization'; end if;
+    v_line_total := round(v_quantity*v_unit_cost,2);
+    v_total := v_total+v_line_total;
+  end loop;
+
+  v_purchase_number := public.next_document_number(p_org_id,'purchase');
+  insert into public.purchases(
+    id,organization_id,supplier_id,branch_id,purchase_number,purchase_date,status,
+    subtotal,total,total_amount,created_by
+  ) values (
+    v_purchase_id,p_org_id,p_supplier_id,v_branch_id,v_purchase_number,p_purchase_date,'ordered',
+    v_total,v_total,v_total,v_user_id
+  );
+
+  for v_item in select value from jsonb_array_elements(p_items) loop
+    v_product_id := (v_item->>'product_id')::uuid;
+    v_quantity := (v_item->>'quantity')::numeric;
+    v_unit_cost := (v_item->>'unit_cost')::numeric;
+    insert into public.purchase_items(
+      organization_id,purchase_id,product_id,quantity,unit_cost,total_cost
+    ) values (
+      p_org_id,v_purchase_id,v_product_id,v_quantity,v_unit_cost,round(v_quantity*v_unit_cost,2)
+    );
+  end loop;
+
+  return jsonb_build_object(
+    'success',true,
+    'purchase_id',v_purchase_id,
+    'purchase_number',v_purchase_number,
+    'total_amount',v_total
+  );
+end;
+$$;
+
+revoke all on function public.create_purchase_order(uuid,uuid,uuid,date,jsonb) from public,anon;
+grant execute on function public.create_purchase_order(uuid,uuid,uuid,date,jsonb) to authenticated;
+
+notify pgrst,'reload schema';
+commit;
+
+-- <<< END 0051_atomic_purchase_order_creation.sql

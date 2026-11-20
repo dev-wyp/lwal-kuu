@@ -27,7 +27,9 @@ Critical workflows: organization registration/onboarding, product/customer/suppl
 - `tests/unit/marketing-logic.test.mjs`: marketing metrics, workflow guards, retry, OAuth state and attribution.
 - `tests/e2e/lwal-kuu.spec.ts`: public landing/pricing, auth validation, marketing auth redirect, pricing periods, public viewport overflow.
 - `supabase/tests/tenant_security.test.sql` and `marketing_approval.test.sql`: checked-in DB scripts; not run in this workspace.
-- `supabase/tests/p0_transaction_integrity.test.sql`: covers intended behaviors for migrations 0043–0044; not run without disposable PostgreSQL.
+- `supabase/tests/p0_transaction_integrity.test.sql`: includes supplier full/partial payment, multi-invoice allocation, advances, idempotent retry, amount/invoice over-allocation rejection, cross-tenant rejection, rollback, and audit assertions; not run without disposable PostgreSQL.
+- `docs/shopflow/PHASE_B_STAGING_VERIFICATION.md`: provides a two-session concurrent supplier-payment protocol. Supplier reversal SQL remains blocked because no reversal RPC/ledger contract exists yet.
+- `supabase/tests/tenant_security.test.sql`: must run alongside the P0 transaction suite after a clean disposable migration replay.
 
 ## Baseline and latest local verification
 

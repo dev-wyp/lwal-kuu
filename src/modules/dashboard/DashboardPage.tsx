@@ -32,82 +32,110 @@ import { useOrg } from '@/context/OrgContext';
 import { useNavigate } from 'react-router-dom';
 import { useI18n } from '@/i18n/I18nContext';
 import { localDateString } from '@/lib/dates';
+import { useEntitlements } from '@/modules/subscription/useEntitlements';
+
+type DashboardRows<T> = { rows: T[] | null; error?: string };
 
 export const DashboardPage: React.FC = () => {
   const { t } = useI18n();
   const { currentOrg, formatCurrency } = useOrg();
   const navigate = useNavigate();
+  const { data: entitlements = [] } = useEntitlements();
+  const canViewCustomerLedger = entitlements.some((item) =>
+    ['customer_ledger', 'customer_debt_tracking'].includes(item.feature_key) && item.is_allowed
+  );
+  const canViewSupplierPayables = entitlements.some((item) => item.feature_key === 'supplier_payables' && item.is_allowed);
   const orgId = currentOrg?.id;
 
   // 1. Fetch Dashboard Metrics
-  const { data: metrics, isLoading, isError, refetch } = useQuery({
-    queryKey: ['dashboard_metrics', orgId],
+  const { data: metrics, isLoading, isError, error: dashboardError, refetch } = useQuery({
+    queryKey: ['dashboard_metrics', orgId, canViewCustomerLedger, canViewSupplierPayables],
     queryFn: async () => {
       if (!orgId) return null;
 
       const now = new Date();
       const today = localDateString(now);
       const startOfMonth = localDateString(new Date(now.getFullYear(), now.getMonth(), 1));
+      const loadErrors: string[] = [];
+      const readRows = async <T,>(name: string, request: PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<DashboardRows<T>> => {
+        try {
+          const { data, error } = await request;
+          if (error) throw error;
+          return { rows: data ?? [] };
+        } catch (requestError) {
+          const detail = requestError instanceof Error ? requestError.message : String(requestError);
+          console.error(`Dashboard request failed (${name}):`, detail);
+          loadErrors.push(name);
+          return { rows: null, error: detail };
+        }
+      };
 
       // Today's Sales
-      const { data: todaySales, error: todaySalesError } = await supabase
+      const todayResult = await readRows('today sales', supabase
         .from('sales')
         .select('total_amount, total_cost')
         .eq('organization_id', orgId)
         .eq('status', 'confirmed')
-        .eq('sale_date', today);
-      if (todaySalesError) throw todaySalesError;
+        .eq('sale_date', today));
+      const todaySales = todayResult.rows;
 
-      const todayTotal = todaySales?.reduce((acc, s) => acc + Number(s.total_amount), 0) || 0;
-      const todayProfit = todaySales?.reduce((acc, s) => acc + (Number(s.total_amount) - Number(s.total_cost)), 0) || 0;
+      const todayTotal = todaySales?.reduce((acc, s) => acc + Number(s.total_amount), 0) ?? null;
+      const todayProfit = todaySales?.reduce((acc, s) => acc + (Number(s.total_amount) - Number(s.total_cost)), 0) ?? null;
 
       // Monthly Sales
-      const { data: monthSales, error: monthSalesError } = await supabase
+      const monthResult = await readRows('monthly sales', supabase
         .from('sales')
         .select('total_amount')
         .eq('organization_id', orgId)
         .eq('status', 'confirmed')
-        .gte('sale_date', startOfMonth);
-      if (monthSalesError) throw monthSalesError;
+        .gte('sale_date', startOfMonth)
+        .lte('sale_date', today));
+      const monthSales = monthResult.rows;
 
-      const monthTotal = monthSales?.reduce((acc, s) => acc + Number(s.total_amount), 0) || 0;
+      const monthTotal = monthSales?.reduce((acc, s) => acc + Number(s.total_amount), 0) ?? null;
 
       // Customer Receivables (Total outstanding)
-      const { data: customerBalances, error: customerBalancesError } = await supabase
-        .from('customer_balances_summary')
-        .select('current_balance')
-        .eq('organization_id', orgId);
-      if (customerBalancesError) throw customerBalancesError;
-
-      const totalReceivables = customerBalances?.reduce((acc, c) => acc + Math.max(0, Number(c.current_balance)), 0) || 0;
+      let totalReceivables: number | null = null;
+      if (canViewCustomerLedger) {
+        const customerBalanceResult = await readRows('customer balances', supabase
+          .from('customer_balances_summary')
+          .select('current_balance')
+          .eq('organization_id', orgId));
+        totalReceivables = customerBalanceResult.rows?.reduce((acc, c) => acc + Math.max(0, Number(c.current_balance)), 0) ?? null;
+      }
 
       // Supplier Payables
-      const { data: supplierBalances, error: supplierBalancesError } = await supabase
-        .from('supplier_balances_summary')
-        .select('current_payable')
-        .eq('organization_id', orgId);
-      if (supplierBalancesError) throw supplierBalancesError;
-
-      const totalPayables = supplierBalances?.reduce((acc, s) => acc + Math.max(0, Number(s.current_payable)), 0) || 0;
+      let supplierBalances: any[] = [];
+      let totalPayables: number | null = 0;
+      if (canViewSupplierPayables) {
+        const supplierBalanceResult = await readRows('supplier balances', supabase
+          .from('supplier_balances_summary')
+          .select('current_payable')
+          .eq('organization_id', orgId));
+        supplierBalances = supplierBalanceResult.rows ?? [];
+        totalPayables = supplierBalanceResult.rows
+          ? supplierBalances.reduce((acc, s) => acc + Math.max(0, Number(s.current_payable)), 0)
+          : null;
+      }
 
       // Current Stock Value & Low Stock Count
-      const { data: stockItems, error: stockItemsError } = await supabase
+      const stockResult = await readRows('stock balances', supabase
         .from('product_stock_balances')
         .select('stock_value, is_low_stock')
-        .eq('organization_id', orgId);
-      if (stockItemsError) throw stockItemsError;
+        .eq('organization_id', orgId));
+      const stockItems = stockResult.rows;
 
-      const totalStockVal = stockItems?.reduce((acc, item) => acc + Number(item.stock_value || 0), 0) || 0;
-      const lowStockCount = stockItems?.filter((item) => item.is_low_stock).length || 0;
+      const totalStockVal = stockItems?.reduce((acc, item) => acc + Number(item.stock_value || 0), 0) ?? null;
+      const lowStockCount = stockItems?.filter((item) => item.is_low_stock).length ?? null;
 
       // Recent 5 Sales Invoices
-      const { data: recentSales, error: recentSalesError } = await supabase
+      const recentSalesResult = await readRows('recent sales', supabase
         .from('sales')
-        .select('id, invoice_number, sale_date, total_amount, paid_amount, payment_status, status, customers(name)')
+        .select('id, invoice_number, sale_date, total_amount, paid_amount, payment_status, status, customers!sales_customer_id_fkey(name)')
         .eq('organization_id', orgId)
+        .eq('status', 'confirmed')
         .order('created_at', { ascending: false })
-        .limit(5);
-      if (recentSalesError) throw recentSalesError;
+        .limit(5));
 
       return {
         todayTotal,
@@ -117,7 +145,9 @@ export const DashboardPage: React.FC = () => {
         totalPayables,
         totalStockVal,
         lowStockCount,
-        recentSales: recentSales || [],
+        recentSales: recentSalesResult.rows ?? [],
+        recentSalesAvailable: recentSalesResult.rows !== null,
+        loadErrors,
       };
     },
     enabled: Boolean(orgId),
@@ -138,19 +168,23 @@ export const DashboardPage: React.FC = () => {
         severity="error"
         action={<Button color="inherit" size="small" onClick={() => void refetch()}>{t('Try again')}</Button>}
       >
-        {t('We could not load your shop summary. Check your connection and try again.')}
+      {t('The dashboard could not be displayed.')}{dashboardError instanceof Error ? ` ${dashboardError.message}` : ''}
       </Alert>
     );
   }
 
   return (
     <Box>
+      {Boolean(metrics?.loadErrors.length) && <Alert severity="warning" sx={{ mb: 2 }}>
+        {t('Some dashboard sections could not be loaded:')} {metrics?.loadErrors.join(', ')}. {t('Available sections are still shown; use Try again to reload.')}
+        <Button color="inherit" size="small" onClick={() => void refetch()} sx={{ ml: 1 }}>{t('Try again')}</Button>
+      </Alert>}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, mb: 3, flexWrap: 'wrap' }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 750, fontSize: { xs: 25, sm: 30 } }}>
             {t("Business Overview")}</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            {t("A quick look at today’s sales, customer balances, and stock.")}
+            {t(canViewCustomerLedger ? "A quick look at today’s sales, customer balances, and stock." : "A quick look at today’s sales and stock.")}
           </Typography>
         </Box>
         <Button
@@ -300,10 +334,10 @@ export const DashboardPage: React.FC = () => {
                 <TrendingUpIcon sx={{ color: 'success.main', fontSize: 20 }} />
               </Box>
               <Typography variant="h5" sx={{ fontWeight: 750, fontSize: { xs: 21, sm: 24 }, overflowWrap: 'anywhere' }}>
-                {formatCurrency(metrics?.todayTotal || 0)}
+                {metrics?.todayTotal === null ? '—' : formatCurrency(metrics?.todayTotal || 0)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {t("Profit:") + " "}{formatCurrency(metrics?.todayProfit || 0)}
+                {t("Profit:") + " "}{metrics?.todayProfit === null ? '—' : formatCurrency(metrics?.todayProfit || 0)}
               </Typography>
             </CardContent>
           </Card>
@@ -318,7 +352,7 @@ export const DashboardPage: React.FC = () => {
                 <ShoppingCartIcon sx={{ color: 'secondary.main', fontSize: 20 }} />
               </Box>
               <Typography variant="h5" sx={{ fontWeight: 750, fontSize: { xs: 21, sm: 24 }, overflowWrap: 'anywhere' }}>
-                {formatCurrency(metrics?.monthTotal || 0)}
+                {metrics?.monthTotal === null ? '—' : formatCurrency(metrics?.monthTotal || 0)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {t("This calendar month")}</Typography>
@@ -326,7 +360,7 @@ export const DashboardPage: React.FC = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        {canViewCustomerLedger && <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ bgcolor: '#ffffff', height: '100%' }}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -335,13 +369,13 @@ export const DashboardPage: React.FC = () => {
                 <AccountBalanceWalletIcon sx={{ color: 'warning.main', fontSize: 20 }} />
               </Box>
               <Typography variant="h5" sx={{ fontWeight: 750, color: 'warning.dark', fontSize: { xs: 21, sm: 24 }, overflowWrap: 'anywhere' }}>
-                {formatCurrency(metrics?.totalReceivables || 0)}
+                {metrics?.totalReceivables === null ? '—' : formatCurrency(metrics?.totalReceivables || 0)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {t("Unpaid customer credit")}</Typography>
             </CardContent>
           </Card>
-        </Grid>
+        </Grid>}
 
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ bgcolor: '#ffffff', height: '100%' }}>
@@ -352,10 +386,10 @@ export const DashboardPage: React.FC = () => {
                 <InventoryIcon sx={{ color: 'primary.main', fontSize: 20 }} />
               </Box>
               <Typography variant="h5" sx={{ fontWeight: 750, fontSize: { xs: 21, sm: 24 }, overflowWrap: 'anywhere' }}>
-                {formatCurrency(metrics?.totalStockVal || 0)}
+                {metrics?.totalStockVal === null ? '—' : formatCurrency(metrics?.totalStockVal || 0)}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                {metrics && metrics.lowStockCount > 0 ? (
+                {metrics?.lowStockCount === null ? <Typography variant="caption" color="text.secondary">{t('Stock levels unavailable')}</Typography> : metrics && metrics.lowStockCount > 0 ? (
                   <Chip
                     icon={<WarningAmberIcon sx={{ fontSize: '14px !important' }} />}
                     label={`${metrics.lowStockCount} ${t('items need restocking')}`}
@@ -396,7 +430,9 @@ export const DashboardPage: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {metrics?.recentSales && metrics.recentSales.length > 0 ? (
+              {metrics?.recentSalesAvailable === false ? (
+                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>{t('Recent sales are unavailable. Try again shortly.')}</TableCell></TableRow>
+              ) : metrics?.recentSales && metrics.recentSales.length > 0 ? (
                 metrics.recentSales.map((sale: any) => (
                   <TableRow key={sale.id} hover>
                     <TableCell sx={{ fontWeight: 600 }}>{sale.invoice_number}</TableCell>

@@ -56,6 +56,7 @@ export const SalesPage: React.FC = () => {
   const canUseCredit = entitlements.some((item) => item.feature_key === 'credit_sales' && item.is_allowed);
   const canUsePartial = entitlements.some((item) => item.feature_key === 'partial_payments' && item.is_allowed);
   const canEstimateProfit = entitlements.some((item) => item.feature_key === 'profit_estimation' && item.is_allowed);
+  const canViewCustomerLedger = entitlements.some((item) => ['customer_ledger', 'customer_debt_tracking'].includes(item.feature_key) && item.is_allowed);
   const orgId = currentOrg?.id;
 
   // POS State
@@ -83,15 +84,35 @@ export const SalesPage: React.FC = () => {
 
   // 1. Fetch Customers
   const { data: customers = [] } = useQuery({
-    queryKey: ['customers_select', orgId],
+    queryKey: ['customers_select', orgId, canViewCustomerLedger],
     queryFn: async () => {
       if (!orgId) return [];
-      const { data } = await supabase
-        .from('customer_balances_summary')
-        .select('*')
+      const { data: customerRows, error } = await supabase
+        .from('customers')
+        .select('id,name,credit_limit,opening_balance')
         .eq('organization_id', orgId)
-        .order('customer_name');
-      return data || [];
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      if (!canViewCustomerLedger || !customerRows?.length) {
+        return (customerRows ?? []).map((customer) => ({
+          customer_id: customer.id,
+          customer_name: customer.name,
+          current_balance: 0,
+        }));
+      }
+
+      const { data: ledgerRows, error: ledgerError } = await supabase
+        .from('customer_balances_summary')
+        .select('customer_id,current_balance')
+        .eq('organization_id', orgId);
+      if (ledgerError) throw ledgerError;
+      const balancesByCustomer = new Map((ledgerRows ?? []).map((row) => [row.customer_id, row.current_balance]));
+      return (customerRows ?? []).map((customer) => ({
+        customer_id: customer.id,
+        customer_name: customer.name,
+        current_balance: balancesByCustomer.get(customer.id) ?? customer.opening_balance ?? 0,
+      }));
     },
     enabled: Boolean(orgId),
   });
@@ -137,10 +158,10 @@ export const SalesPage: React.FC = () => {
         .from('sales')
         .select(`
           *,
-          customers(name),
-          sale_items(
+          customers!sales_customer_id_fkey(name),
+          sale_items!sale_items_sale_id_fkey(
             id, quantity, unit_price, total_amount,
-            products(name, sku)
+            products!sale_items_product_id_fkey(name, sku)
           )
         `)
         .eq('organization_id', orgId)
@@ -438,7 +459,7 @@ export const SalesPage: React.FC = () => {
               <MenuItem value="">{t("-- Walk-in Customer --")}</MenuItem>
               {customers.map((c: any) => (
                 <MenuItem key={c.customer_id} value={c.customer_id}>
-                  {c.customer_name} (Bal: {formatCurrency(c.current_balance)})
+                  {c.customer_name}{canViewCustomerLedger ? ` (Bal: ${formatCurrency(c.current_balance)})` : ''}
                 </MenuItem>
               ))}
             </TextField>

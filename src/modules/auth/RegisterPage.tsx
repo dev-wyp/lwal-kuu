@@ -16,6 +16,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useNotification } from '@/context/NotificationContext';
 import { captureAttributionFromSearch } from '@/modules/marketing/lib/utm';
@@ -40,6 +41,15 @@ export const RegisterPage: React.FC = () => {
   const { t } = useI18n();
 
   const selectedPlan = searchParams.get('plan') || 'starter';
+  const { data: selectedPlanDetails } = useQuery({
+    queryKey: ['public_registration_plan', selectedPlan],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('plans').select('name,trial_days')
+        .eq('id', selectedPlan).eq('is_active', true).eq('is_public', true).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
 
   React.useEffect(() => {
     captureAttributionFromSearch(window.location.search);
@@ -92,7 +102,11 @@ export const RegisterPage: React.FC = () => {
         {t('Create Your Account')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        {t('Start your 14-day free trial on the')} {selectedPlan.toUpperCase()} {t('plan.')}
+        {selectedPlanDetails
+          ? selectedPlanDetails.trial_days > 0
+            ? t('Start your {{days}}-day free trial on the {{plan}} plan.', { days: selectedPlanDetails.trial_days, plan: t(selectedPlanDetails.name) })
+            : t('Create an account and choose the {{plan}} plan.', { plan: t(selectedPlanDetails.name) })
+          : t('Create your account to set up your shop and selected plan.')}
       </Typography>
 
       {errorMsg && (

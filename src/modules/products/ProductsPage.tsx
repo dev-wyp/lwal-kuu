@@ -16,6 +16,7 @@ import {
   IconButton,
   CircularProgress,
   MenuItem,
+  Alert,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
@@ -29,6 +30,30 @@ import { useOrg } from '@/context/OrgContext';
 import { useNotification } from '@/context/NotificationContext';
 import { ProductModal } from './ProductModal';
 import { useI18n } from '@/i18n/I18nContext';
+
+const parseCsvRow = (line: string): string[] => {
+  const values: string[] = [];
+  let value = '';
+  let quoted = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (character === '"') {
+      if (quoted && line[index + 1] === '"') {
+        value += '"';
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (character === ',' && !quoted) {
+      values.push(value.trim());
+      value = '';
+    } else {
+      value += character;
+    }
+  }
+  values.push(value.trim());
+  return values;
+};
 
 export const ProductsPage: React.FC = () => {
   const { t } = useI18n();
@@ -74,7 +99,7 @@ export const ProductsPage: React.FC = () => {
   });
 
   // 3. Fetch Products with current stock balance
-  const { data: products = [], isLoading } = useQuery({
+  const { data: products = [], isLoading, isError: productsError, refetch: refetchProducts } = useQuery({
     queryKey: ['products', orgId, search, categoryFilter],
     queryFn: async () => {
       if (!orgId) return [];
@@ -84,7 +109,7 @@ export const ProductsPage: React.FC = () => {
         .select(`
           *,
           product_categories(name),
-          units(name, code)
+          units!products_unit_id_fkey(name, code)
         `)
         .eq('organization_id', orgId)
         .eq('is_active', true)
@@ -95,17 +120,19 @@ export const ProductsPage: React.FC = () => {
       }
 
       if (search) {
-        query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%`);
+        const safeSearch = search.replace(/[,%()\\]/g, ' ').trim();
+        if (safeSearch) query = query.or(`name.ilike.%${safeSearch}%,sku.ilike.%${safeSearch}%,barcode.ilike.%${safeSearch}%,qr_code.ilike.%${safeSearch}%`);
       }
 
       const { data, error } = await query;
       if (error) throw error;
 
       // Fetch stock balances
-      const { data: stockBalances } = await supabase
+      const { data: stockBalances, error: stockError } = await supabase
         .from('product_stock_balances')
         .select('product_id, stock_on_hand, is_low_stock')
         .eq('organization_id', orgId);
+      if (stockError) throw stockError;
 
       const balanceMap = new Map();
       stockBalances?.forEach((b) => {
@@ -147,7 +174,7 @@ export const ProductsPage: React.FC = () => {
     try {
       setImporting(true);
       const text = await file.text();
-      const lines = text.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+      const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
       if (lines.length <= 1) {
         showError('CSV file is empty or has no data rows');
         return;
@@ -161,7 +188,7 @@ export const ProductsPage: React.FC = () => {
 
       const productsToInsert = [];
       for (let i = 1; i < lines.length; i++) {
-        const parts = lines[i].split(',').map((p) => p.trim());
+        const parts = parseCsvRow(lines[i]);
         if (parts.length >= 2 && parts[1]) {
           productsToInsert.push({
             organization_id: orgId,
@@ -285,6 +312,9 @@ export const ProductsPage: React.FC = () => {
       </Paper>
 
       {/* Products Table */}
+      {productsError && <Alert severity="error" sx={{ mb: 2 }} action={<Button color="inherit" size="small" onClick={() => void refetchProducts()}>{t('Try again')}</Button>}>
+        {t('Products or stock levels could not be loaded. Check your connection and try again.')}
+      </Alert>}
       <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff', overflow: 'hidden' }}>
         <TableContainer>
           <Table>

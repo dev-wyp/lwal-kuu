@@ -59,19 +59,45 @@ export const CustomersPage: React.FC = () => {
   const [statementCustomer, setStatementCustomer] = useState<any>(null);
 
   const { data: customers = [], isLoading } = useQuery({
-    queryKey: ['customers', orgId, search],
+    queryKey: ['customers', orgId, search, canViewCustomerLedger],
     queryFn: async () => {
       if (!orgId) return [];
 
-      const { data, error } = await supabase
-        .from('customer_balances_summary')
-        .select('*')
+      const { data: customerRows, error } = await supabase
+        .from('customers')
+        .select('id,name,phone,email,address,credit_limit,opening_balance,is_active,created_at')
         .eq('organization_id', orgId)
-        .ilike('customer_name', `%${search}%`)
-        .order('customer_name');
+        .eq('is_active', true)
+        .ilike('name', `%${search}%`)
+        .order('name');
 
       if (error) throw error;
-      return data || [];
+      if (!canViewCustomerLedger || !customerRows?.length) {
+        return (customerRows ?? []).map((customer) => ({
+          ...customer,
+          customer_id: customer.id,
+          customer_name: customer.name,
+          total_confirmed_sales: 0,
+          total_payments_received: 0,
+          current_balance: 0,
+        }));
+      }
+
+      const { data: ledgerRows, error: ledgerError } = await supabase
+        .from('customer_balances_summary')
+        .select('customer_id,total_confirmed_sales,total_payments_received,current_balance')
+        .eq('organization_id', orgId);
+      if (ledgerError) throw ledgerError;
+      const balancesByCustomer = new Map((ledgerRows ?? []).map((row) => [row.customer_id, row]));
+
+      return (customerRows ?? []).map((customer) => ({
+        ...customer,
+        customer_id: customer.id,
+        customer_name: customer.name,
+        total_confirmed_sales: balancesByCustomer.get(customer.id)?.total_confirmed_sales ?? 0,
+        total_payments_received: balancesByCustomer.get(customer.id)?.total_payments_received ?? 0,
+        current_balance: balancesByCustomer.get(customer.id)?.current_balance ?? customer.opening_balance ?? 0,
+      }));
     },
     enabled: Boolean(orgId),
   });

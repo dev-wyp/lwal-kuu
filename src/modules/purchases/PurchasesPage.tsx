@@ -21,6 +21,7 @@ import {
   CircularProgress,
   IconButton,
   Divider,
+  Alert,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -57,7 +58,7 @@ export const PurchasesPage: React.FC = () => {
   const [receivePaymentMethod, setReceivePaymentMethod] = useState('cash');
   const [receiving, setReceiving] = useState(false);
 
-  const { data: branches = [] } = useQuery({
+  const { data: branches = [], isError: branchesError } = useQuery({
     queryKey: ['branches', orgId],
     queryFn: async () => {
       if (!orgId) return [];
@@ -77,37 +78,39 @@ export const PurchasesPage: React.FC = () => {
   }, [branches]);
 
   // 1. Fetch Suppliers
-  const { data: suppliers = [] } = useQuery({
+  const { data: suppliers = [], isLoading: suppliersLoading, isError: suppliersError } = useQuery({
     queryKey: ['suppliers_list', orgId],
     queryFn: async () => {
       if (!orgId) return [];
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('suppliers')
         .select('id, name')
         .eq('organization_id', orgId)
         .eq('is_active', true);
+      if (error) throw error;
       return data || [];
     },
     enabled: Boolean(orgId),
   });
 
   // 2. Fetch Products
-  const { data: products = [] } = useQuery({
+  const { data: products = [], isLoading: productsLoading, isError: productsError } = useQuery({
     queryKey: ['products_list', orgId],
     queryFn: async () => {
       if (!orgId) return [];
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('products')
         .select('id, name, sku, purchase_price')
         .eq('organization_id', orgId)
         .eq('is_active', true);
+      if (error) throw error;
       return data || [];
     },
     enabled: Boolean(orgId),
   });
 
   // 3. Fetch Purchases
-  const { data: purchases = [], isLoading } = useQuery({
+  const { data: purchases = [], isLoading, isError: purchasesError, refetch: refetchPurchases } = useQuery({
     queryKey: ['purchases', orgId],
     queryFn: async () => {
       if (!orgId) return [];
@@ -115,13 +118,12 @@ export const PurchasesPage: React.FC = () => {
         .from('purchases')
         .select(`
           *,
-          suppliers(name)
+          suppliers!purchases_supplier_id_fkey(name)
         `)
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false });
-
       if (error) throw error;
-      return data || [];
+      return data ?? [];
     },
     enabled: Boolean(orgId),
   });
@@ -175,46 +177,23 @@ export const PurchasesPage: React.FC = () => {
       return;
     }
 
+    if (!branchId) {
+      showError('Create or activate a branch before receiving stock');
+      return;
+    }
+
     try {
       setSubmitting(true);
-      const poNum = await supabase.rpc('next_document_number', {
+      const { data, error } = await supabase.rpc('create_purchase_order' as any, {
         p_org_id: currentOrg.id,
-        p_doc_type: 'purchase',
-      });
-      if (poNum.error) throw poNum.error;
+        p_supplier_id: supplierId,
+        p_branch_id: branchId,
+        p_purchase_date: purchaseDate,
+        p_items: validItems.map((it) => ({ product_id: it.productId, quantity: it.quantity, unit_cost: it.unitCost })),
+      } as any);
+      if (error) throw error;
 
-      const total = calculateTotal();
-
-      const { data: poData, error: poErr } = await supabase
-        .from('purchases')
-        .insert({
-          organization_id: currentOrg.id,
-          supplier_id: supplierId,
-          branch_id: branchId || null,
-          purchase_number: poNum.data,
-          purchase_date: purchaseDate,
-          status: 'ordered',
-          subtotal: total,
-          total_amount: total,
-        } as any)
-        .select()
-        .single();
-
-      if (poErr) throw poErr;
-
-      const itemRows = validItems.map((it) => ({
-        organization_id: currentOrg.id,
-        purchase_id: poData.id,
-        product_id: it.productId,
-        quantity: it.quantity,
-        unit_cost: it.unitCost,
-        total_cost: it.quantity * it.unitCost,
-      }));
-
-      const { error: itemErr } = await supabase.from('purchase_items').insert(itemRows as any);
-      if (itemErr) throw itemErr;
-
-      showSuccess(`Purchase Order ${poNum.data} created!`);
+      showSuccess(`Purchase Order ${data.purchase_number} created!`);
       queryClient.invalidateQueries({ queryKey: ['purchases'] });
       setCreateModalOpen(false);
     } catch (err: any) {
@@ -232,6 +211,11 @@ export const PurchasesPage: React.FC = () => {
 
   const handleConfirmReceive = async () => {
     if (!currentOrg || !selectedPurchase) return;
+    const outstanding = Math.max(0, Number(selectedPurchase.total_amount) - Number(selectedPurchase.paid_amount || 0));
+    if (!Number.isFinite(receivePaidAmount) || receivePaidAmount < 0 || receivePaidAmount > outstanding) {
+      showError('Enter a payment from zero up to the purchase outstanding balance');
+      return;
+    }
 
     try {
       setReceiving(true);
@@ -282,6 +266,13 @@ export const PurchasesPage: React.FC = () => {
         >
           {t("New Purchase Order")}</Button>
       </Box>
+
+      {purchasesError && <Alert severity="error" sx={{ mb: 2 }} action={<Button color="inherit" size="small" onClick={() => void refetchPurchases()}>{t('Try again')}</Button>}>
+        {t('Purchase history could not be loaded. Check your connection and try again.')}
+      </Alert>}
+      {(suppliersError || productsError || branchesError) && <Alert severity="error" sx={{ mb: 2 }}>
+        {t('Supplier, branch, or product information could not be loaded. Refresh the page or check your connection.')}
+      </Alert>}
 
       {/* Table */}
       <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
@@ -456,7 +447,7 @@ export const PurchasesPage: React.FC = () => {
           <Button
             variant="contained"
             onClick={handleCreatePurchase}
-            disabled={submitting}
+            disabled={submitting || suppliersLoading || productsLoading || suppliersError || productsError || suppliers.length === 0 || products.length === 0 || branches.length === 0}
             sx={{ bgcolor: '#0f172a', fontWeight: 600 }}
           >
             {submitting ? <CircularProgress size={20} color="inherit" /> : 'Create Purchase Order'}
@@ -480,6 +471,7 @@ export const PurchasesPage: React.FC = () => {
             label={t("Upfront Cash/Payment Paid to Supplier (MMK)")}
             value={receivePaidAmount}
             onChange={(e) => setReceivePaidAmount(Number(e.target.value))}
+            inputProps={{ min: 0, max: Math.max(0, Number(selectedPurchase?.total_amount || 0) - Number(selectedPurchase?.paid_amount || 0)), step: 0.01 }}
             sx={{ mb: 2 }}
           />
 

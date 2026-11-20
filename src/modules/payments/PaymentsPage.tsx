@@ -20,6 +20,7 @@ import {
   MenuItem,
   CircularProgress,
   Divider,
+  Alert,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -46,22 +47,23 @@ export const PaymentsPage: React.FC = () => {
   const pendingPayment = useRef<{ fingerprint: string; idempotencyKey: string } | null>(null);
 
   // 1. Fetch Customers
-  const { data: customers = [] } = useQuery({
+  const { data: customers = [], isError: customersError } = useQuery({
     queryKey: ['customers_for_payment', orgId],
     queryFn: async () => {
       if (!orgId) return [];
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('customer_balances_summary')
         .select('*')
         .eq('organization_id', orgId)
         .order('customer_name');
-      return data || [];
+      if (error) throw error;
+      return data ?? [];
     },
     enabled: Boolean(orgId),
   });
 
   // 2. Fetch Customer Unpaid Invoices
-  const { data: unpaidInvoices = [] } = useQuery({
+  const { data: unpaidInvoices = [], isError: unpaidInvoicesError } = useQuery({
     queryKey: ['unpaid_invoices', orgId, customerId],
     queryFn: async () => {
       if (!orgId || !customerId) return [];
@@ -73,15 +75,14 @@ export const PaymentsPage: React.FC = () => {
         .eq('status', 'confirmed')
         .in('payment_status', ['unpaid', 'partial'])
         .order('sale_date', { ascending: true });
-
       if (error) throw error;
-      return data || [];
+      return data ?? [];
     },
     enabled: Boolean(orgId && customerId && modalOpen),
   });
 
   // 3. Fetch Payments History
-  const { data: payments = [], isLoading } = useQuery({
+  const { data: payments = [], isLoading, isError: paymentsError } = useQuery({
     queryKey: ['payments_list', orgId],
     queryFn: async () => {
       if (!orgId) return [];
@@ -89,13 +90,12 @@ export const PaymentsPage: React.FC = () => {
         .from('payments')
         .select(`
           *,
-          customers(name)
+          customers!payments_customer_id_fkey(name)
         `)
         .eq('organization_id', orgId)
         .order('created_at', { ascending: false });
-
       if (error) throw error;
-      return data || [];
+      return data ?? [];
     },
     enabled: Boolean(orgId),
   });
@@ -131,6 +131,16 @@ export const PaymentsPage: React.FC = () => {
     const allocList = Object.entries(allocations)
       .filter(([_, amt]) => amt > 0)
       .map(([saleId, amt]) => ({ sale_id: saleId, amount: amt }));
+    const allocatedTotal = allocList.reduce((total, allocation) => total + allocation.amount, 0);
+    if (allocatedTotal - paymentAmount > 0.001) {
+      showError('Invoice allocations cannot be more than the payment amount');
+      return;
+    }
+    const dueByInvoice = new Map(unpaidInvoices.map((invoice: any) => [invoice.id, Number(invoice.total_amount) - Number(invoice.paid_amount)]));
+    if (allocList.some((allocation) => allocation.amount > (dueByInvoice.get(allocation.sale_id) ?? -1) + 0.001)) {
+      showError('An allocation is greater than that invoice’s remaining balance');
+      return;
+    }
     const fingerprint = JSON.stringify({
       organizationId: currentOrg.id,
       customerId,
@@ -210,6 +220,7 @@ export const PaymentsPage: React.FC = () => {
 
       {/* Table */}
       <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#ffffff' }}>
+        {paymentsError && <Alert severity="error" sx={{ m: 2 }}>{t('Payment history could not be loaded. Refresh the page or check your connection.')}</Alert>}
         <TableContainer>
           <Table>
             <TableHead>
@@ -279,7 +290,7 @@ export const PaymentsPage: React.FC = () => {
                 select
                 label={t("Customer")}
                 value={customerId}
-                onChange={(e) => setCustomerId(e.target.value)}
+                onChange={(e) => { setCustomerId(e.target.value); setAllocations({}); }}
               >
                 {customers.map((c: any) => (
                   <MenuItem key={c.customer_id} value={c.customer_id}>
@@ -296,6 +307,7 @@ export const PaymentsPage: React.FC = () => {
                 label={t("Payment Amount Received (MMK)")}
                 value={paymentAmount}
                 onChange={(e) => setPaymentAmount(Number(e.target.value))}
+                inputProps={{ min: 0, step: 0.01 }}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -338,6 +350,8 @@ export const PaymentsPage: React.FC = () => {
           <Divider sx={{ my: 2 }} />
 
           {/* Allocation Section */}
+          {customersError && <Alert severity="error" sx={{ mb: 2 }}>{t('Customer balances could not be loaded. Try closing and reopening this payment or refresh the page.')}</Alert>}
+          {unpaidInvoicesError && <Alert severity="error" sx={{ mb: 2 }}>{t('Open invoices could not be loaded. Retry after checking your connection.')}</Alert>}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
               {t("Allocate Payment Across Open Invoices:")}</Typography>

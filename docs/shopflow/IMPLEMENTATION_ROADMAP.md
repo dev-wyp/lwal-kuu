@@ -1,6 +1,6 @@
 # ShopFlow V1.0 Implementation Roadmap
 
-**Updated:** 2026-11-19  
+**Updated:** 2026-11-20
 **Source:** [Feature gap audit](FEATURE_GAP_AUDIT.md), existing audit reports, architecture notes, and direct local source review.  
 **Release position:** NOT READY until P0 transaction/security work is locally verified, replayed and tested in staging, and production state is confirmed by an authorized operator. Operator logs report `0043` applied and `0044` failed because the deployed `supplier_payment_allocations` relation has a different schema; this has not been independently verified from remote migration history.
 
@@ -88,4 +88,12 @@
 - Phase A audit and roadmap: complete as local source artifacts.
 - Phase B: local migrations 0043–0044, RPC changes, POS/payment retry behavior, supplier payment UI and SQL regression script created; implementation is not certified. Production migration 0044 is blocked on read-only inspection of the existing allocation-table schema. Database integration remains blocked until disposable local/staging Postgres is available, then staging verification is still required.
 - Phases C–L: not started; follow the above dependency order.
+
+### Phase B evidence update — 2026-11-20
+
+- Local source dependency review now covers migrations `0043`–`0047`; see [Phase B migration compatibility report](PHASE_B_MIGRATION_DEPENDENCY_AND_COMPATIBILITY_REPORT.md).
+- The read-only 0044 diagnostic was expanded to inspect parent `(organization_id,id)` key prerequisites, effective table and owned-sequence grants, and trigger/function security metadata. It was not run; the [results template](MIGRATION_0044_DIAGNOSTIC_RESULTS_TEMPLATE.md) is intentionally blank.
+- No actual allocation-table schema, constraints, policy/grant output, or aggregate mismatch results were supplied. Therefore 0044 remains blocked and no compatibility mapping or corrected production migration is proposed.
+- Clean migration replay, P0 SQL, tenant SQL, plan matrix SQL, concurrency checks, and staging upgrade remain NOT RUN. Docker is unavailable and the linked Supabase target is production, which was not used. The release remains NOT READY / UNVERIFIED.
+- The Phase B attachment explicitly says not to start later phases. Supplier reversal design/implementation and subsequent feature phases remain deferred pending review and a disposable database target.
 

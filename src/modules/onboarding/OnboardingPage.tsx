@@ -117,7 +117,7 @@ export const OnboardingPage: React.FC = () => {
       const createdOrgId = (rpcOrg as { id: string; name: string }).id;
       const createdOrgName = (rpcOrg as { id: string; name: string }).name;
 
-      showSuccess(`Organization "${createdOrgName}" created! Your 14-day trial is active.`);
+      showSuccess(t('Organization "{{name}}" created. Your plan trial is active.', { name: createdOrgName }));
       localStorage.setItem('shopflow_active_org_id', createdOrgId);
       const attribution = readStoredAttribution();
       if (attribution) {

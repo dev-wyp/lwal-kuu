@@ -1,5 +1,5 @@
 -- P0 transaction regression tests. Run only on a disposable local/test Supabase
--- database after migrations 0001–0044. The transaction rolls back every fixture.
+-- database after migrations 0001–0048. The transaction rolls back every fixture.
 begin;
 
 insert into auth.users(id,aud,role,email,encrypted_password,email_confirmed_at,created_at,updated_at)
@@ -12,9 +12,6 @@ where id in ('61000000-0000-4000-8000-000000000001','61000000-0000-4000-8000-000
 insert into public.organizations(id,name,slug) values
   ('62000000-0000-4000-8000-000000000001','P0 Tenant A','p0-tenant-a'),
   ('62000000-0000-4000-8000-000000000002','P0 Tenant B','p0-tenant-b');
-insert into public.organization_members(organization_id,user_id,role,is_active) values
-  ('62000000-0000-4000-8000-000000000001','61000000-0000-4000-8000-000000000001','owner',true),
-  ('62000000-0000-4000-8000-000000000002','61000000-0000-4000-8000-000000000002','owner',true);
 -- This fixture exercises supplier-payables-gated RPCs, so Tenant A needs the
 -- Business entitlement. Insert it in the disposable test transaction rather
 -- than relying on any organization-creation trigger or production subscription.
@@ -22,6 +19,9 @@ insert into public.subscriptions(organization_id,plan_id,status,billing_cycle)
 values
   ('62000000-0000-4000-8000-000000000001','business','active','monthly'),
   ('62000000-0000-4000-8000-000000000002','starter','active','monthly');
+insert into public.organization_members(organization_id,user_id,role,is_active) values
+  ('62000000-0000-4000-8000-000000000001','61000000-0000-4000-8000-000000000001','owner',true),
+  ('62000000-0000-4000-8000-000000000002','61000000-0000-4000-8000-000000000002','owner',true);
 insert into public.organization_settings(organization_id) values
   ('62000000-0000-4000-8000-000000000001'),('62000000-0000-4000-8000-000000000002');
 
@@ -46,10 +46,14 @@ insert into public.purchases(id,organization_id,supplier_id,purchase_number,stat
 values
   ('68000000-0000-4000-8000-000000000001','62000000-0000-4000-8000-000000000001',
     '65000000-0000-4000-8000-000000000001','P0-A-PO-1','ordered',100),
+  ('68000000-0000-4000-8000-000000000003','62000000-0000-4000-8000-000000000001',
+    '65000000-0000-4000-8000-000000000001','P0-A-PO-2','ordered',100),
   ('68000000-0000-4000-8000-000000000002','62000000-0000-4000-8000-000000000002',
     '65000000-0000-4000-8000-000000000002','P0-B-PO-1','ordered',100);
 insert into public.purchase_items(organization_id,purchase_id,product_id,quantity,unit_cost,total_cost)
 values('62000000-0000-4000-8000-000000000001','68000000-0000-4000-8000-000000000001',
+  '63000000-0000-4000-8000-000000000001',2,50,100),
+  ('62000000-0000-4000-8000-000000000001','68000000-0000-4000-8000-000000000003',
   '63000000-0000-4000-8000-000000000001',2,50,100),
   ('62000000-0000-4000-8000-000000000002','68000000-0000-4000-8000-000000000002',
   '63000000-0000-4000-8000-000000000002',2,50,100);
@@ -152,7 +156,7 @@ select public.confirm_sale('62000000-0000-4000-8000-000000000001',
 
 -- Cross-customer allocation and over-allocation must abort the whole payment call.
 do $$
-declare payment_count_before integer; payment_count_after integer;
+declare payment_count_before integer; payment_count_after integer; first_result jsonb; retry_result jsonb;
 begin
   select count(*) into payment_count_before from public.payments where organization_id='62000000-0000-4000-8000-000000000001';
   begin
@@ -181,6 +185,43 @@ begin
   end;
   select count(*) into payment_count_after from public.payments where organization_id='62000000-0000-4000-8000-000000000001';
   if payment_count_after<>payment_count_before then raise exception 'FAIL: rejected payment left a payment row'; end if;
+
+  first_result := public.record_customer_payment_and_allocate(
+    '62000000-0000-4000-8000-000000000001','64000000-0000-4000-8000-000000000001',25,'cash',
+    '[{"sale_id":"67000000-0000-4000-8000-000000000002","amount":25}]'::jsonb,
+    'P0-RECEIPT-1','same request','p0-customer-retry-001');
+  retry_result := public.record_customer_payment_and_allocate(
+    '62000000-0000-4000-8000-000000000001','64000000-0000-4000-8000-000000000001',25.00,'cash',
+    '[{"sale_id":"67000000-0000-4000-8000-000000000002","amount":25.00}]'::jsonb,
+    'P0-RECEIPT-1','same request','p0-customer-retry-001');
+  if first_result->>'payment_id' is distinct from retry_result->>'payment_id' then
+    raise exception 'FAIL: equivalent customer payment retry returned a different payment';
+  end if;
+  begin
+    perform public.record_customer_payment_and_allocate(
+      '62000000-0000-4000-8000-000000000001','64000000-0000-4000-8000-000000000001',25,'cash',
+      '[{"sale_id":"67000000-0000-4000-8000-000000000002","amount":20}]'::jsonb,
+      'P0-RECEIPT-1','same request','p0-customer-retry-001');
+    raise exception 'FAIL: changed allocation payload reused a customer payment key';
+  exception when raise_exception then
+    if sqlerrm<>'Idempotency key was already used for a different payment request' then raise; end if;
+  end;
+  begin
+    perform public.record_customer_payment_and_allocate(
+      '62000000-0000-4000-8000-000000000001','64000000-0000-4000-8000-000000000001',25,'cash',
+      '[{"sale_id":"67000000-0000-4000-8000-000000000002","amount":25}]'::jsonb,
+      'P0-RECEIPT-1','changed notes','p0-customer-retry-001');
+    raise exception 'FAIL: changed payment metadata reused a customer payment key';
+  exception when raise_exception then
+    if sqlerrm<>'Idempotency key was already used for a different payment request' then raise; end if;
+  end;
+  if (select count(*) from public.payments where organization_id='62000000-0000-4000-8000-000000000001'
+      and idempotency_key='p0-customer-retry-001')<>1
+      or (select paid_amount from public.sales where id='67000000-0000-4000-8000-000000000002')<>25 then
+    raise exception 'FAIL: customer payment retry duplicated or changed ledger effects';
+  end if;
+  select count(*) into payment_count_after from public.payments where organization_id='62000000-0000-4000-8000-000000000001';
+  if payment_count_after<>payment_count_before+1 then raise exception 'FAIL: customer retry created duplicate or missing payment rows'; end if;
 end;
 $$;
 
@@ -207,6 +248,8 @@ begin
   select count(*) into supplier_payment_count from public.supplier_payments
     where purchase_id='68000000-0000-4000-8000-000000000001';
   if movement_count_after<>movement_count_before or supplier_payment_count<>1 then raise exception 'FAIL: duplicate purchase receipt created ledger rows'; end if;
+  perform public.receive_purchase('62000000-0000-4000-8000-000000000001',
+    '68000000-0000-4000-8000-000000000003',0,'cash');
 end;
 $$;
 
@@ -228,11 +271,38 @@ end;
 $$;
 select set_config('request.jwt.claim.sub','61000000-0000-4000-8000-000000000001',true);
 
--- Supplier partial allocation is idempotent; unallocated remainder is retained as
--- an advance and cannot be mistaken for a second invoice allocation.
+-- Supplier full/partial payments, multiple-invoice allocation, idempotent retries,
+-- unallocated advances, tenant checks, audit writes, and rollback on rejected calls.
 do $$
-declare first_result jsonb; retry_result jsonb; payment_count integer; allocation_count integer; advance_result jsonb;
+declare
+  first_result jsonb;
+  retry_result jsonb;
+  multi_result jsonb;
+  full_result jsonb;
+  advance_result jsonb;
+  reversal_result jsonb;
+  reversal_retry jsonb;
+  payment_count integer;
+  allocation_count integer;
+  reversal_allocation_count integer;
+  audit_count integer;
+  reversal_audit_count integer;
+  payment_count_before integer;
+  payment_count_after integer;
+  paid_before numeric;
+  paid_after numeric;
+  paid_purchase_one_before numeric;
+  paid_purchase_three_before numeric;
 begin
+  if has_table_privilege('authenticated','public.supplier_payment_reversals','INSERT')
+      or has_table_privilege('authenticated','public.supplier_payment_reversals','UPDATE')
+      or has_table_privilege('authenticated','public.supplier_payment_reversals','DELETE')
+      or has_table_privilege('authenticated','public.supplier_payment_reversal_allocations','INSERT')
+      or has_table_privilege('authenticated','public.supplier_payment_reversal_allocations','UPDATE')
+      or has_table_privilege('authenticated','public.supplier_payment_reversal_allocations','DELETE') then
+    raise exception 'FAIL: authenticated clients can directly mutate supplier reversal history';
+  end if;
+
   first_result := public.record_supplier_payment_and_allocate(
     '62000000-0000-4000-8000-000000000001','65000000-0000-4000-8000-000000000001',20,'cash',
     '[{"purchase_id":"68000000-0000-4000-8000-000000000001","amount":20}]'::jsonb,null,null,'p0-supplier-payment-001');
@@ -240,12 +310,155 @@ begin
     '62000000-0000-4000-8000-000000000001','65000000-0000-4000-8000-000000000001',20,'cash',
     '[{"purchase_id":"68000000-0000-4000-8000-000000000001","amount":20}]'::jsonb,null,null,'p0-supplier-payment-001');
   if first_result->>'payment_id'<>retry_result->>'payment_id' then raise exception 'FAIL: supplier payment retry returned a different payment'; end if;
-  select count(*) into payment_count from public.supplier_payments where organization_id='62000000-0000-4000-8000-000000000001' and idempotency_key='p0-supplier-payment-001';
-  select count(*) into allocation_count from public.supplier_payment_allocations where organization_id='62000000-0000-4000-8000-000000000001' and supplier_payment_id=(first_result->>'payment_id')::uuid;
-  if payment_count<>1 or allocation_count<>1 then raise exception 'FAIL: supplier payment retry duplicated rows'; end if;
+
+  -- Reusing a key with a changed payload must be rejected without a second row.
+  begin
+    perform public.record_supplier_payment_and_allocate(
+      '62000000-0000-4000-8000-000000000001','65000000-0000-4000-8000-000000000001',21,'cash',
+      '[{"purchase_id":"68000000-0000-4000-8000-000000000001","amount":20}]'::jsonb,null,null,'p0-supplier-payment-001');
+    raise exception 'FAIL: changed supplier payment retry unexpectedly succeeded';
+  exception when raise_exception then
+    if sqlerrm<>'Idempotency key was already used for a different supplier payment' then raise; end if;
+  end;
+
+  -- One supplier payment may be allocated across multiple invoices.
+  multi_result := public.record_supplier_payment_and_allocate(
+    '62000000-0000-4000-8000-000000000001','65000000-0000-4000-8000-000000000001',30,'bank_transfer',
+    '[{"purchase_id":"68000000-0000-4000-8000-000000000001","amount":5},
+      {"purchase_id":"68000000-0000-4000-8000-000000000003","amount":25}]'::jsonb,null,null,'p0-supplier-payment-multi-001');
+  retry_result := public.record_supplier_payment_and_allocate(
+    '62000000-0000-4000-8000-000000000001','65000000-0000-4000-8000-000000000001',30,'bank_transfer',
+    '[{"purchase_id":"68000000-0000-4000-8000-000000000001","amount":5},
+      {"purchase_id":"68000000-0000-4000-8000-000000000003","amount":25}]'::jsonb,null,null,'p0-supplier-payment-multi-001');
+  if multi_result->>'payment_id'<>retry_result->>'payment_id' then raise exception 'FAIL: multi-invoice retry returned a different payment'; end if;
+  select count(*) into allocation_count from public.supplier_payment_allocations
+    where organization_id='62000000-0000-4000-8000-000000000001'
+      and supplier_payment_id=(multi_result->>'payment_id')::uuid;
+  if allocation_count<>2 then raise exception 'FAIL: multi-invoice payment did not create two allocations'; end if;
+
+  -- Fully settle the remaining amount on the first invoice.
+  full_result := public.record_supplier_payment_and_allocate(
+    '62000000-0000-4000-8000-000000000001','65000000-0000-4000-8000-000000000001',50,'cash',
+    '[{"purchase_id":"68000000-0000-4000-8000-000000000001","amount":50}]'::jsonb,null,null,'p0-supplier-payment-full-001');
+  if (select paid_amount from public.purchases where id='68000000-0000-4000-8000-000000000001')<>100 then
+    raise exception 'FAIL: full supplier payment did not settle invoice';
+  end if;
+
+  select count(*) into payment_count_before from public.supplier_payments
+    where organization_id='62000000-0000-4000-8000-000000000001';
+  select paid_amount into paid_before from public.purchases where id='68000000-0000-4000-8000-000000000001';
+  -- Total allocations above the payment amount must roll back before any ledger write.
+  begin
+    perform public.record_supplier_payment_and_allocate(
+      '62000000-0000-4000-8000-000000000001','65000000-0000-4000-8000-000000000001',10,'cash',
+      '[{"purchase_id":"68000000-0000-4000-8000-000000000003","amount":11}]'::jsonb,null,null,'p0-supplier-overpay-001');
+    raise exception 'FAIL: allocation above payment amount unexpectedly succeeded';
+  exception when raise_exception then
+    if sqlerrm<>'Allocations cannot exceed the payment amount' then raise; end if;
+  end;
+  -- Invoice over-allocation is rejected even when the payment itself is sufficient.
+  begin
+    perform public.record_supplier_payment_and_allocate(
+      '62000000-0000-4000-8000-000000000001','65000000-0000-4000-8000-000000000001',60,'cash',
+      '[{"purchase_id":"68000000-0000-4000-8000-000000000001","amount":60}]'::jsonb,null,null,'p0-supplier-overinvoice-001');
+    raise exception 'FAIL: allocation above invoice outstanding unexpectedly succeeded';
+  exception when raise_exception then
+    if sqlerrm<>'Allocation exceeds purchase payable balance' then raise; end if;
+  end;
+  select count(*) into payment_count_after from public.supplier_payments
+    where organization_id='62000000-0000-4000-8000-000000000001';
+  select paid_amount into paid_after from public.purchases where id='68000000-0000-4000-8000-000000000001';
+  if payment_count_after<>payment_count_before or paid_after<>paid_before then
+    raise exception 'FAIL: rejected supplier payment did not roll back all changes';
+  end if;
+
+  -- Both a foreign supplier and a foreign purchase must be rejected.
+  begin
+    perform public.record_supplier_payment_and_allocate(
+      '62000000-0000-4000-8000-000000000001','65000000-0000-4000-8000-000000000002',5,'cash',
+      '[]'::jsonb,null,null,'p0-supplier-cross-tenant-001');
+    raise exception 'FAIL: cross-tenant supplier unexpectedly succeeded';
+  exception when raise_exception then
+    if sqlerrm<>'Supplier does not belong to this organization or is inactive' then raise; end if;
+  end;
+  begin
+    perform public.record_supplier_payment_and_allocate(
+      '62000000-0000-4000-8000-000000000001','65000000-0000-4000-8000-000000000001',5,'cash',
+      '[{"purchase_id":"68000000-0000-4000-8000-000000000002","amount":5}]'::jsonb,null,null,'p0-purchase-cross-tenant-001');
+    raise exception 'FAIL: cross-tenant purchase unexpectedly succeeded';
+  exception when raise_exception then
+    if sqlerrm<>'Purchase does not belong to this organization' then raise; end if;
+  end;
+
   advance_result := public.record_supplier_payment_and_allocate(
     '62000000-0000-4000-8000-000000000001','65000000-0000-4000-8000-000000000001',10,'cash','[]'::jsonb,null,null,'p0-supplier-advance-001');
   if (advance_result->>'unallocated_amount')::numeric<>10 then raise exception 'FAIL: supplier advance was not retained as unallocated'; end if;
+
+  -- A reversal is an immutable compensating record, restores each invoice once,
+  -- and returns the same result for an equivalent retry.
+  select paid_amount into paid_purchase_one_before from public.purchases where id='68000000-0000-4000-8000-000000000001';
+  select paid_amount into paid_purchase_three_before from public.purchases where id='68000000-0000-4000-8000-000000000003';
+  reversal_result := public.reverse_supplier_payment(
+    '62000000-0000-4000-8000-000000000001',(multi_result->>'payment_id')::uuid,
+    'Duplicate bank transfer entered by mistake','p0-supplier-reversal-multi-001');
+  reversal_retry := public.reverse_supplier_payment(
+    '62000000-0000-4000-8000-000000000001',(multi_result->>'payment_id')::uuid,
+    'Duplicate bank transfer entered by mistake','p0-supplier-reversal-multi-001');
+  if reversal_result->>'reversal_id' is distinct from reversal_retry->>'reversal_id'
+      or reversal_retry->>'replayed'<>'true' then
+    raise exception 'FAIL: supplier reversal retry did not return the original reversal';
+  end if;
+  if (select paid_amount from public.purchases where id='68000000-0000-4000-8000-000000000001')<>paid_purchase_one_before-5
+      or (select paid_amount from public.purchases where id='68000000-0000-4000-8000-000000000003')<>paid_purchase_three_before-25 then
+    raise exception 'FAIL: supplier reversal did not restore allocated purchase balances exactly once';
+  end if;
+  select count(*) into reversal_allocation_count from public.supplier_payment_reversal_allocations
+    where organization_id='62000000-0000-4000-8000-000000000001'
+      and reversal_id=(reversal_result->>'reversal_id')::uuid;
+  if reversal_allocation_count<>2 then raise exception 'FAIL: reversal allocation audit is incomplete'; end if;
+  begin
+    perform public.reverse_supplier_payment(
+      '62000000-0000-4000-8000-000000000002',(multi_result->>'payment_id')::uuid,
+      'Cross organization attempt','p0-supplier-reversal-cross-tenant-001');
+    raise exception 'FAIL: cross-tenant supplier payment reversal unexpectedly succeeded';
+  exception when raise_exception then
+    if sqlerrm<>'Unauthorized' then raise; end if;
+  end;
+  begin
+    perform public.reverse_supplier_payment(
+      '62000000-0000-4000-8000-000000000001',(multi_result->>'payment_id')::uuid,
+      'Different request reason','p0-supplier-reversal-multi-other-001');
+    raise exception 'FAIL: already reversed supplier payment was reversed twice';
+  exception when raise_exception then
+    if sqlerrm<>'Supplier payment is already reversed' then raise; end if;
+  end;
+  begin
+    perform public.reverse_supplier_payment(
+      '62000000-0000-4000-8000-000000000001',(multi_result->>'payment_id')::uuid,
+      'Changed reason on retry','p0-supplier-reversal-multi-001');
+    raise exception 'FAIL: changed reversal retry unexpectedly succeeded';
+  exception when raise_exception then
+    if sqlerrm<>'Idempotency key was already used for a different supplier payment reversal' then raise; end if;
+  end;
+
+  -- Advances without invoice allocations can be reversed without touching a purchase.
+  reversal_result := public.reverse_supplier_payment(
+    '62000000-0000-4000-8000-000000000001',(advance_result->>'payment_id')::uuid,
+    'Advance returned to bank','p0-supplier-reversal-advance-001');
+  if (reversal_result->>'amount')::numeric<>10 then raise exception 'FAIL: unallocated advance reversal amount is incorrect'; end if;
+
+  -- Successful payment creation is auditable exactly once despite duplicate retries.
+  select count(*) into audit_count from public.audit_logs
+    where organization_id='62000000-0000-4000-8000-000000000001'
+      and action='supplier_payment.create'
+      and entity_id in ((first_result->>'payment_id')::uuid,(multi_result->>'payment_id')::uuid,
+        (full_result->>'payment_id')::uuid,(advance_result->>'payment_id')::uuid);
+  if audit_count<>4 then raise exception 'FAIL: supplier payment audit history is missing or duplicated'; end if;
+  select count(*) into reversal_audit_count from public.audit_logs
+    where organization_id='62000000-0000-4000-8000-000000000001'
+      and action='supplier_payment.reverse'
+      and entity_id in ((multi_result->>'payment_id')::uuid,(advance_result->>'payment_id')::uuid);
+  if reversal_audit_count<>2 then raise exception 'FAIL: supplier reversal audit history is missing or duplicated'; end if;
 end;
 $$;
 

@@ -33,6 +33,7 @@ import { useNotification } from '@/context/NotificationContext';
 import { useEntitlements } from './useEntitlements';
 import { UsageLimitIndicator } from './UsageLimitIndicator';
 import { useI18n } from '@/i18n/I18nContext';
+import { getPlanFeatureSection, getPlanLimitValue, getYearlySavingsPercent } from './planPresentation.js';
 
 interface SubscriptionSummary {
   found: boolean;
@@ -45,13 +46,20 @@ interface SubscriptionSummary {
 }
 
 interface TenantPlanFeature {
+  feature_id: string;
   is_enabled: boolean;
-  features: { name: string; feature_type: string } | null;
+  features: { id: string; name: string; feature_type: string; is_active: boolean; category: string } | null;
 }
 
 interface TenantPlanLimit {
+  feature_id: string;
   limit_value: number;
-  features: { name: string } | null;
+}
+
+interface LimitCatalogFeature {
+  id: string;
+  feature_key: string;
+  name: string;
 }
 
 interface TenantPlan {
@@ -62,6 +70,7 @@ interface TenantPlan {
   currency: string;
   monthly_price_mmk: number;
   yearly_price_mmk: number;
+  trial_days: number;
   max_users: number;
   max_products: number;
   max_customers: number;
@@ -101,16 +110,25 @@ export const SubscriptionPage: React.FC = () => {
   });
 
   // Plans and their feature assignments are tenant-visible product data.
-  const { data: plansMaster = [] } = useQuery({
+  const { data: planCatalog } = useQuery({
     queryKey: ['plans_master_with_features'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('plans')
-        .select('id,name,slug,description,currency,monthly_price_mmk,yearly_price_mmk,max_users,max_products,max_customers,max_suppliers,max_branches,display_order,plan_features(is_enabled,features(name,feature_type)),plan_feature_limits(limit_value,features(name))')
-        .eq('is_active', true).eq('is_public', true).order('display_order');
-      if (error) throw error;
-      return (data ?? []) as unknown as TenantPlan[];
+      const [plansResult, limitsResult] = await Promise.all([
+        supabase.from('plans')
+          .select('id,name,slug,description,currency,monthly_price_mmk,yearly_price_mmk,trial_days,max_users,max_products,max_customers,max_suppliers,max_branches,display_order,plan_features(feature_id,is_enabled,features(id,name,feature_type,is_active,category)),plan_feature_limits(feature_id,limit_value)')
+          .eq('is_active', true).eq('is_public', true).order('display_order'),
+        supabase.from('features').select('id,feature_key,name').eq('is_active', true).eq('feature_type', 'limit').order('name'),
+      ]);
+      if (plansResult.error) throw plansResult.error;
+      if (limitsResult.error) throw limitsResult.error;
+      return {
+        plans: (plansResult.data ?? []) as unknown as TenantPlan[],
+        limitFeatures: (limitsResult.data ?? []) as LimitCatalogFeature[],
+      };
     },
   });
+  const plansMaster = planCatalog?.plans ?? [];
+  const limitFeatures = planCatalog?.limitFeatures ?? [];
 
   const { data: paymentHistory = [] } = useQuery({
     queryKey: ['subscription_payments', orgId],
@@ -155,6 +173,10 @@ export const SubscriptionPage: React.FC = () => {
   };
 
   const isTrial = subData?.status === 'trialing';
+  const selectedPlan = plansMaster.find((plan) => plan.id === targetPlanId);
+  const selectedYearlySavings = selectedPlan
+    ? getYearlySavingsPercent(Number(selectedPlan.monthly_price_mmk), Number(selectedPlan.yearly_price_mmk))
+    : null;
 
   return (
     <Box>
@@ -216,22 +238,30 @@ export const SubscriptionPage: React.FC = () => {
       <Grid container spacing={3} alignItems="stretch" sx={{ mb: 4 }}>
         {plansMaster.map((plan, index) => {
           const isCurrentPlan = plan.id === subData?.plan_id;
-          const booleanFeatures = plan.plan_features.filter((feature) => feature.features?.feature_type === 'boolean'
-            && feature.features.name);
-          const enabledFeatureNames = new Set(booleanFeatures.filter((feature) => feature.is_enabled)
-            .map((feature) => feature.features?.name).filter((name): name is string => Boolean(name)));
-          const earlierFeatureNames = new Set(plansMaster.slice(0, index).flatMap((earlierPlan) =>
-            earlierPlan.plan_features.filter((feature) => feature.is_enabled && feature.features?.feature_type === 'boolean')
-              .map((feature) => feature.features?.name).filter((name): name is string => Boolean(name))));
-          const additionalFeatures = booleanFeatures.filter((feature) => feature.is_enabled
-            && feature.features?.name && !earlierFeatureNames.has(feature.features.name));
           const previousPlan = plansMaster[index - 1];
-          const previousFeatureNames = previousPlan?.plan_features
-            .filter((feature) => feature.is_enabled && feature.features?.feature_type === 'boolean')
-            .map((feature) => feature.features?.name).filter((name): name is string => Boolean(name)) ?? [];
-          const includesPreviousPlan = previousFeatureNames.every((name) => enabledFeatureNames.has(name));
+          const enabledFeatures = plan.plan_features
+            .filter((feature) => feature.is_enabled && feature.features?.is_active && feature.features.feature_type === 'boolean' && feature.features.name)
+            .map((feature) => ({ id: feature.feature_id, name: feature.features?.name ?? '', category: feature.features?.category }));
+          const previousFeatures = previousPlan
+            ? previousPlan.plan_features
+              .filter((feature) => feature.is_enabled && feature.features?.is_active && feature.features.feature_type === 'boolean' && feature.features.name)
+              .map((feature) => ({ id: feature.feature_id, name: feature.features?.name ?? '', category: feature.features?.category }))
+            : null;
+          const featureSection = getPlanFeatureSection(enabledFeatures, previousFeatures);
           const price = billingCycle === 'yearly' ? plan.yearly_price_mmk : plan.monthly_price_mmk;
-          const limits = plan.plan_feature_limits.filter((item) => item.features?.name);
+          const configuredLimits = new Map(plan.plan_feature_limits.map((item) => [item.feature_id, item.limit_value]));
+          const legacyLimits: Record<string, number> = {
+            max_users: plan.max_users,
+            max_products: plan.max_products,
+            max_customers: plan.max_customers,
+            max_suppliers: plan.max_suppliers,
+            max_branches: plan.max_branches,
+          };
+          const limits = limitFeatures.map((feature) => ({
+            ...feature,
+            limit_value: getPlanLimitValue(configuredLimits.get(feature.id), legacyLimits[feature.feature_key]),
+          }));
+          const yearlySavings = getYearlySavingsPercent(Number(plan.monthly_price_mmk), Number(plan.yearly_price_mmk));
           return <Grid item xs={12} md={4} key={plan.id}>
             <Card sx={{ height: '100%', borderRadius: 3, border: isCurrentPlan || plan.slug === 'business' ? '2px solid #0284c7' : '1px solid #e2e8f0' }}>
               <CardContent sx={{ p: 3 }}>
@@ -244,23 +274,30 @@ export const SubscriptionPage: React.FC = () => {
                   <Typography variant="h3" fontWeight={800}>{Number(price).toLocaleString()}</Typography>
                   <Typography color="text.secondary" sx={{ ml: 1 }}>{plan.currency} / {billingCycle === 'yearly' ? t('year') : t('month')}</Typography>
                 </Box>
+                {billingCycle === 'yearly' && yearlySavings !== null && <Typography variant="body2" color="success.main" sx={{ mb: 1.5, fontWeight: 700 }}>
+                  {t('Save {{percent}}% compared with monthly billing', { percent: yearlySavings })}
+                </Typography>}
                 <Button fullWidth variant={isCurrentPlan ? 'outlined' : 'contained'} sx={{ mb: 2 }} onClick={() => {
                   setTargetPlanId(plan.id);
                   setUpgradeModalOpen(true);
                 }}>{t(isCurrentPlan ? 'Renew this plan' : 'Choose this plan')}</Button>
                 <Typography variant="subtitle2" fontWeight={700}>{t('Usage limits')}</Typography>
-                <List dense disablePadding>{limits.map((item) => <ListItem key={item.features?.name} disableGutters>
-                  <ListItemText primary={`${t(item.features?.name ?? '')}: ${item.limit_value === -1 ? t('Unlimited') : item.limit_value.toLocaleString()}`} />
+                <List dense disablePadding>{limits.map((item) => <ListItem key={item.id} disableGutters>
+                  <ListItemText primary={`${t(item.name)}: ${item.limit_value === null ? t('Not configured') : item.limit_value === -1 ? t('Unlimited') : item.limit_value.toLocaleString()}`} />
                 </ListItem>)}</List>
-                {includesPreviousPlan && previousPlan && <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1 }}>{t('Plan terms')}</Typography>
+                <List dense disablePadding><ListItem disableGutters>
+                  <ListItemText primary={`${t('Free trial')}: ${plan.trial_days > 0 ? t('{{days}} days', { days: plan.trial_days }) : t('No free trial')}`} />
+                </ListItem></List>
+                {featureSection.includesPreviousPlan && previousPlan && <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
                   {t('Includes all {{plan}} features.', { plan: t(previousPlan.name) })}
                 </Typography>}
-                <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1.5 }}>{t(previousPlan ? 'Additional features' : 'Included features')}</Typography>
-                <List dense disablePadding>{additionalFeatures.length === 0
-                  ? <ListItem disableGutters><ListItemText primary={t(previousPlan ? 'No additional features' : 'No modules configured')} /></ListItem>
-                  : additionalFeatures.map((feature) => <ListItem key={feature.features?.name} disableGutters>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ mt: 1.5 }}>{t(featureSection.includesPreviousPlan ? 'Additional features' : 'Included features')}</Typography>
+                <List dense disablePadding>{featureSection.features.length === 0
+                  ? <ListItem disableGutters><ListItemText primary={t(enabledFeatures.length === 0 ? 'No modules configured' : 'No additional features')} /></ListItem>
+                  : featureSection.features.map((feature) => <ListItem key={feature.id} disableGutters>
                     <ListItemIcon sx={{ minWidth: 28 }}><CheckCircleIcon color="success" fontSize="small" /></ListItemIcon>
-                    <ListItemText primary={t(feature.features?.name ?? '')} />
+                    <ListItemText primary={t(feature.name)} />
                   </ListItem>)}</List>
               </CardContent>
             </Card>
@@ -297,7 +334,7 @@ export const SubscriptionPage: React.FC = () => {
         <DialogTitle sx={{ fontWeight: 700 }}>{t("Upgrade or Renew Subscription")}</DialogTitle>
         <DialogContent dividers>
           <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
-            {t("Payments are manually verified by platform administrators within 2 hours. Official Myanmar payment gateway integration will auto-activate once merchant credentials are connected.")}</Alert>
+            {t("Payments are manually reviewed by platform administrators. Your selected plan activates after your payment is approved. Online payment gateway integration is not currently available.")}</Alert>
 
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
@@ -327,7 +364,7 @@ export const SubscriptionPage: React.FC = () => {
                 onChange={(e) => setBillingCycle(e.target.value)}
               >
                 <MenuItem value="monthly">{t("Monthly")}</MenuItem>
-                <MenuItem value="yearly">{t("Yearly (Save 16%)")}</MenuItem>
+                <MenuItem value="yearly">{selectedYearlySavings === null ? t('Yearly') : t('Yearly (Save {{percent}}%)', { percent: selectedYearlySavings })}</MenuItem>
               </TextField>
             </Grid>
 

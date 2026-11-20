@@ -96,7 +96,7 @@ export const InventoryPage: React.FC = () => {
         .from('stock_movements')
         .select(`
           *,
-          products(sku, name, units(code))
+          products!stock_movements_product_id_fkey(sku, name, units!products_unit_id_fkey(code))
         `)
         .eq('organization_id', orgId)
         .eq('branch_id', branchId)

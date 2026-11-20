@@ -24,7 +24,7 @@ test.describe('Lwal Kuu E2E Critical Path Suite', () => {
     // Navigate to Register
     await page.click('text=Start free trial');
     await expect(page).toHaveURL(/.*register/);
-    await expect(page.locator('text=Create Your Account')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Create Your Account' })).toBeVisible();
   });
 
   test('3. Public Pricing Billing Cycle Calculations', async ({ page }) => {
@@ -33,16 +33,36 @@ test.describe('Lwal Kuu E2E Critical Path Suite', () => {
     await expect(page.locator('text=15,000')).toBeVisible();
     await page.getByRole('button', { name: 'Yearly', exact: true }).click();
     await expect(page.locator('text=150,000')).toBeVisible();
+    await expect(page.getByText('Save 17% compared with monthly billing').first()).toBeVisible();
   });
 
-  test('4. Marketing routes require authentication', async ({ page }) => {
+  test('4. Pricing cards list only the features added after the included lower plan', async ({ page }) => {
+    await page.goto('/pricing');
+    const cards = page.locator('.MuiCard-root');
+    const businessCard = cards.nth(1);
+    const proCard = cards.nth(2);
+
+    await expect(businessCard).toContainText('Includes all Starter features.');
+    await expect(businessCard).toContainText('Additional features');
+    await expect(businessCard).toContainText('Free trial: 14 days');
+    await expect(businessCard).not.toContainText('Cash Sales');
+    await expect(proCard).toContainText('Includes all Business features.');
+    await expect(proCard).toContainText('Additional features');
+    await expect(proCard).not.toContainText('Credit Sales');
+
+    await cards.nth(0).getByRole('button', { name: 'Choose this plan' }).click();
+    await expect(page).toHaveURL(/\/register\?plan=starter&cycle=monthly/);
+    await expect(page.getByText(/Start your \d+-day free trial on the Starter plan\./)).toBeVisible();
+  });
+
+  test('5. Marketing routes require authentication', async ({ page }) => {
     await page.goto('/marketing');
     await expect(page).toHaveURL(/login/);
     await page.goto('/marketing/approvals');
     await expect(page).toHaveURL(/login/);
   });
 
-  test('5. Public pages fit phone, tablet, and desktop widths', async ({ page }) => {
+  test('6. Public pages fit phone, tablet, and desktop widths', async ({ page }) => {
     for (const viewport of [
       { width: 320, height: 740 },
       { width: 390, height: 844 },

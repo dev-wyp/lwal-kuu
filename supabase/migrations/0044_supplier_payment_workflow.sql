@@ -6,22 +6,40 @@ begin;
 -- shape differs from this migration's contract. Inspect its columns and constraints
 -- first; never create a parallel ledger or guess how legacy references map.
 do $$
-declare missing_columns text[];
+declare missing_columns text[]; incompatible_columns text[]; extra_required_columns text[];
 begin
   if to_regclass('public.supplier_payment_allocations') is not null then
     select array_agg(required.column_name order by required.column_name)
       into missing_columns
       from (values
-        ('id'),('organization_id'),('supplier_payment_id'),('purchase_id'),('amount')
-      ) as required(column_name)
+        ('id','uuid'),('organization_id','uuid'),('supplier_payment_id','uuid'),
+        ('purchase_id','uuid'),('amount','numeric')
+      ) as required(column_name,expected_udt_name)
       where not exists (
         select 1 from information_schema.columns c
         where c.table_schema='public'
           and c.table_name='supplier_payment_allocations'
           and c.column_name=required.column_name
       );
-    if missing_columns is not null then
-      raise exception 'Existing public.supplier_payment_allocations has an incompatible schema; missing columns: %. Run the read-only schema inspection query and adapt migration 0044 before retrying.', array_to_string(missing_columns, ', ');
+    select array_agg(required.column_name||' (expected '||required.expected_udt_name||', found '||c.udt_name||')' order by required.column_name)
+      into incompatible_columns
+      from (values
+        ('id','uuid'),('organization_id','uuid'),('supplier_payment_id','uuid'),
+        ('purchase_id','uuid'),('amount','numeric')
+      ) as required(column_name,expected_udt_name)
+      join information_schema.columns c
+        on c.table_schema='public' and c.table_name='supplier_payment_allocations'
+       and c.column_name=required.column_name
+      where c.udt_name<>required.expected_udt_name;
+    select array_agg(c.column_name order by c.column_name)
+      into extra_required_columns
+      from information_schema.columns c
+      where c.table_schema='public' and c.table_name='supplier_payment_allocations'
+        and c.is_nullable='NO' and c.column_default is null
+        and c.is_identity='NO' and c.is_generated='NEVER'
+        and c.column_name not in ('organization_id','supplier_payment_id','purchase_id','amount');
+    if missing_columns is not null or incompatible_columns is not null or extra_required_columns is not null then
+      raise exception 'Existing public.supplier_payment_allocations is incompatible; missing columns: %; incompatible types: %; additional required columns with no default: %. Run the read-only schema inspection and adapt migration 0044 before retrying.', coalesce(array_to_string(missing_columns, ', '),'none'), coalesce(array_to_string(incompatible_columns, ', '),'none'), coalesce(array_to_string(extra_required_columns, ', '),'none');
     end if;
   end if;
 end;
